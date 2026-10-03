@@ -21,10 +21,14 @@ function __hText(x, depth, key) {
   return '';
 }
 
+/* NaN is always a bug. "undefined" is only a bug when it is a leaked JS value (after = or :, a whole SVG
+   text node, or glued to a number); prose such as "the ratio is undefined when ε = 0" is correct teaching. */
+var __hLEAK = /\bNaN\b|[=:]\s*undefined\b|>\s*undefined\s*<|="undefined"|[\d)\]]\s*undefined\b|\bundefined\s*[\d(]/;
+
 function __hBad(text, svg) {
   var out = [];
   if (/\bNaN\b/.test(text)) out.push('NaN');
-  if (/\bundefined\b/.test(text)) out.push('undefined');
+  if (/[=:]\s*undefined\b|>\s*undefined\s*<|="undefined"|[\d)\]]\s*undefined\b|\bundefined\s*[\d(]/.test(text)) out.push('undefined');
   if (text.indexOf('[object Object]') >= 0) out.push('[object Object]');
   if (/\bInfinity\b/.test(svg)) out.push('Infinity inside the SVG');
   return out;
@@ -69,7 +73,7 @@ function __hBadReadout(ro) {
   for (i = 0; i < ro.length && out.length < 3; i++) {
     it = ro[i];
     t = __hText(it);
-    var m = /\bNaN\b|\bundefined\b/.exec(t);
+    var m = __hLEAK.exec(t);
     if (m) out.push('readout item "' + (it && it.label !== undefined ? it.label : (it && it.table && it.table.title) || i) + '" shows ...' +
       t.slice(Math.max(0, m.index - 60), m.index + 20) + '...');
   }
@@ -121,7 +125,7 @@ function __hTry(label, p, rep, sev) {
     if (!where.length) where = __hBadReadout(o.roRaw);
     if (!where.length) {
       var hit = function (name, text) {
-        var m = /\bNaN\b|\bundefined\b/.exec(text);
+        var m = __hLEAK.exec(text);
         if (m) where.push(name + ' contains ...' + text.slice(Math.max(0, m.index - 60), m.index + 20) + '...');
       };
       hit('insight(p, r)', o.ins);

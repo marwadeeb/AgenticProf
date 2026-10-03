@@ -1,2 +1,9 @@
-requests==2.34.2
-quickjs==1.19.4
+# Python 3.11, exact pins. quickjs embeds the QuickJS engine so the agent can EXECUTE the generated
+# JavaScript during its self-checks. Where no prebuilt wheel exists (e.g. Linux ARM) it is skipped
+# by the marker below and the agent falls back to static checks (the page still self-tests in the browser).
+requests==2.32.3
+certifi==2024.8.30
+charset-normalizer==3.4.0
+idna==3.10
+urllib3==2.2.3
+quickjs==1.19.4; python_version < "3.13" and (platform_machine == "x86_64" or platform_machine == "AMD64" or sys_platform == "darwin")

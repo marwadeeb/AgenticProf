@@ -1,0 +1,7 @@
+{
+  "id": "attention-scaled-dot-product",
+  "source_url": "https://arxiv.org/html/1706.03762v7",
+  "excerpt": "Section 3.2.1, Scaled Dot-Product Attention (paraphrased for practice). An attention function maps a query and a set of key-value pairs to an output. Queries and keys have dimension d_k and values have dimension d_v. For each query we take its dot product with every key, divide each by √d_k, and apply a softmax to obtain weights on the values. With queries packed into a matrix Q, keys into K and values into V: Attention(Q, K, V) = softmax(QKᵀ/√d_k) V (Equation 1). The authors compare this with additive attention and with unscaled dot-product attention. They suspect that for large d_k the dot products grow large in magnitude, pushing the softmax into regions with extremely small gradients, and scale by 1/√d_k to counteract this.",
+  "focus": "Explain scaled dot-product attention (Eq. 1) using small, editable Q, K and V matrices. Show the similarity scores QKᵀ, the scaled scores, the softmax attention weights and the output. Let the learner edit matrix values and switch the 1/√d_k scaling on and off. Guide them through (a) a query whose scores are all equal and (b) one dominant score. Check that each row of weights sums to one and that the output equals the weighted sum of the rows of V. Do not train a Transformer.",
+  "audience": "Second- or third-year engineering undergraduates who know matrix multiplication and exponentials but have not studied neural networks."
+}

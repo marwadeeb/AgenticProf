@@ -1,0 +1,7 @@
+{
+  "id": "sinusoidal-positional-encoding",
+  "source_url": "https://arxiv.org/html/1706.03762v7",
+  "excerpt": "Section 3.5, Positional Encoding (paraphrased for practice). The model has no recurrence or convolution, so information about token order is injected by adding positional encodings of dimension d_model to the input embeddings. The authors use sines and cosines of different frequencies: PE(pos, 2i) = sin(pos / 10000^(2i/d_model)) and PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model)), where pos is the position and i indexes the dimension pair. Each dimension is a sinusoid; the wavelengths form a geometric progression from 2π to 10000·2π. They chose this function hypothesising that it lets the model easily learn to attend by relative positions, since for any fixed offset k, PE(pos+k) can be represented as a linear function of PE(pos).",
+  "focus": "Explain the sinusoidal positional encoding of Section 3.5. Let the learner choose a small even d_model, a position and an offset k. Show the encoding matrix for the first positions as a heatmap, the sinusoid of a selected dimension pair, and each pair's wavelength. Guide them through (a) low versus high dimension indices (fast versus slow oscillation) and (b) the fact that each sin/cos pair at pos+k is the pair at pos rotated by an angle that depends only on k. Check that every value lies in [−1, 1], that sin² + cos² = 1 for each pair, and that the rotation reproduces PE(pos+k).",
+  "audience": "Third-year engineering undergraduates who know trigonometric identities and vectors."
+}

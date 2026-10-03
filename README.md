@@ -17,7 +17,7 @@ python -m http.server -d out 8000                   # then open http://localhost
 
 Exit codes: `0` page generated, `1` generation failed (a readable fallback page and the trace are still written), `2` invalid input or missing key.
 
-Dependencies (all pure wheels, no system packages): `requests`, `quickjs` (executes the generated JavaScript during checks), `latex2mathml` (renders equations in textbook form at generation time).
+Dependencies (all prebuilt wheels, no system packages): `requests`, `quickjs` (executes the generated JavaScript during checks), `latex2mathml` (renders equations in textbook form at generation time).
 
 ## Architecture
 
@@ -51,11 +51,11 @@ case.json ─► 1. PLAN + GENERATE   ONE LLM call returns a short plan, a SPEC 
 | One generation call, template does the boilerplate | ~7k total tokens for a clean case |
 | Patch-style repairs (changed functions only) | repair completion ≈ 3,000 → 400–900 tokens; average −22% tokens |
 | Value-level diagnostics in failures | the attention case went from 0/6 tests after repairs to passing |
-| Stop a repair loop that makes no progress | an identical prompt returned an identical answer in 7/7 observed cases |
+| Stop a repair loop that makes no progress | repeating a repair with the same prompt never fixed anything (0/7 observed) |
 | Escalation ladder (derivation, then capped reasoning) | fixed maths bugs (rotation formula, alias phase) that plain repairs never fixed |
 | Fastest-provider routing for the same model | per-call latency varied 18–166 s with default routing |
 
-**Last measured run (12 practice cases; Bloom filter, momentum and Huffman coding were run for the first time):** 12/12 pages generated with exit 0, 11/12 with every check passing, 8/12 clean in a single call, median ≈ 7.9k tokens and ≈ 18 s per case (mean 13.4k tokens, pulled up by cases that needed repairs).
+**Last measured run (12 practice cases; Bloom filter, momentum and Huffman coding were run for the first time):** 12/12 pages generated with exit 0, 11/12 with every check passing, 8/12 clean in a single call, median ≈ 7.9k tokens and ≈ 18 s per case (mean 13.4k tokens, pulled up by cases that needed repairs). A second full run on another machine: 12/12 with every check passing, 6/12 in a single call, median ≈ 10.9k tokens and ≈ 19 s per case.
 
 ## What every generated page contains
 
@@ -115,7 +115,7 @@ python tests/offline_check.py                                         # no key o
 python tools/run_cases.py --model deepseek/deepseek-v4.1-flash          # all practice cases → runs/<case>/
 ```
 
-Use Python 3.11 (the project venv): on Python 3.13+ `quickjs` has no wheel, the executable checks are skipped and `run_cases.py` prints a warning.
+Use Python 3.11 (the project venv): `requirements.txt` installs `quickjs` only on Python ≤ 3.12, so on 3.13+ the executable checks are skipped and `run_cases.py` prints a warning.
 
 ## Example input/output
 

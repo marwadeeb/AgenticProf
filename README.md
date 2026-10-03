@@ -2,7 +2,7 @@
 
 EECE503P / EECE798S Agentic Systems hackathon. `agent.py` turns a research-paper excerpt and a learning brief into a single, offline, interactive HTML explainer (`out/index.html`) plus an execution trace (`out/trace.jsonl`).
 
-**Team:** _add names here_
+**Team:** Laure Mohsen, Marwa Deeb
 
 **MODEL_ID:** the instructor-supplied OpenRouter model, passed as `--model MODEL_ID`. Assessment model: `deepseek/deepseek-v4.1-flash` (DeepSeek V4.1 Flash).
 

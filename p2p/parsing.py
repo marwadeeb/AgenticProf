@@ -5,6 +5,8 @@ import json
 import re
 from dataclasses import dataclass
 
+from .mathml import fix_latex_escapes
+
 SPEC, CODE, END, PATCH = "===SPEC===", "===CODE===", "===END===", "===SPEC_PATCH==="
 _THINK = re.compile(r"<(think|thinking|reasoning)>.*?</\1>", re.S | re.I)
 
@@ -130,7 +132,7 @@ def load_json_object(s):
     i, j = s.find("{"), s.rfind("}")
     if i < 0 or j <= i:
         return None, "no JSON object found"
-    s = s[i:j + 1]
+    s = fix_latex_escapes(s[i:j + 1])
     first_err = None
     for cand in _variants(s):
         try:

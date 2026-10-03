@@ -40,6 +40,59 @@
   function setStatus(msg) { var s = $('p2p-status'); s.textContent = msg || ''; s.hidden = !msg; }
   function val(id, d) { var e = $(id); if (!e) return d; return e.type === 'checkbox' ? e.checked : e.value; }
 
+  var REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var TWEEN = ['x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry', 'x1', 'y1', 'x2', 'y2', 'opacity', 'stroke-width'];
+  var NUMS = /-?\d*\.?\d+(?:e[-+]?\d+)?/gi;
+  /* Morph the new SVG from the previous one: when the drawing has the same structure (the usual case when a
+     control moves), numeric geometry is interpolated so bars grow, points glide and lines bend smoothly. */
+  function tweenSvg(oldSvg, host) {
+    var nu = host.querySelector('svg');
+    if (REDUCED || !oldSvg || !nu) return;
+    var a = oldSvg.querySelectorAll('*'), b = nu.querySelectorAll('*'), jobs = [], i, k, f, t, ka, kb;
+    if (a.length !== b.length || a.length > 5000) return;
+    for (i = 0; i < a.length; i++) {
+      if (a[i].tagName !== b[i].tagName) return;
+      for (k = 0; k < TWEEN.length; k++) {
+        f = parseFloat(a[i].getAttribute(TWEEN[k])); t = parseFloat(b[i].getAttribute(TWEEN[k]));
+        if (isFinite(f) && isFinite(t) && f !== t) jobs.push({ e: b[i], k: TWEEN[k], f: f, t: t });
+      }
+      ka = a[i].getAttribute('d') !== null ? 'd' : (a[i].getAttribute('points') !== null ? 'points' : null);
+      if (ka) {
+        var sa = a[i].getAttribute(ka), sb = b[i].getAttribute(ka), na = sa.match(NUMS) || [], nb = sb.match(NUMS) || [];
+        kb = sb.replace(NUMS, '#');
+        if (na.length === nb.length && na.length && sa.replace(NUMS, '#') === kb && sa !== sb) jobs.push({ e: b[i], k: ka, path: kb, f: na.map(Number), t: nb.map(Number) });
+      }
+    }
+    if (!jobs.length) return;
+    var t0 = 0, dur = 260;
+    function frame(ts) {
+      if (!t0) t0 = ts;
+      var p = Math.min(1, (ts - t0) / dur), q = 1 - Math.pow(1 - p, 3), j, J, n;
+      for (j = 0; j < jobs.length; j++) {
+        J = jobs[j];
+        if (J.path) { n = 0; J.e.setAttribute(J.k, J.path.replace(/#/g, function () { var v = J.f[n] + (J.t[n] - J.f[n]) * q; n++; return Math.round(v * 100) / 100; })); }
+        else J.e.setAttribute(J.k, J.f + (J.t - J.f) * q);
+      }
+      if (p < 1 && host.contains(nu)) window.requestAnimationFrame(frame);
+    }
+    window.requestAnimationFrame(frame);
+  }
+  function fillPct(c, v) { return (isNum(c.min) && isNum(c.max) && c.max > c.min) ? (100 * (v - c.min) / (c.max - c.min)) + '%' : '50%'; }
+
+  /* "Your path": small milestones that make progress visible (move a control, both explorations, the caveat). */
+  var MILESTONES = ['path-play', 'path-x1', 'path-x2', 'path-caveat'], reached = {};
+  function reach(id) {
+    if (reached[id]) return;
+    reached[id] = 1;
+    var s = $(id); if (s) s.classList.add('done');
+    var n = MILESTONES.filter(function (m) { return reached[m]; }).length, ch = $('p2p-cheer');
+    if (ch) { ch.textContent = n === MILESTONES.length ? 'You have explored the whole mechanism.' : n + ' / ' + MILESTONES.length; ch.classList.add('show'); }
+  }
+  function touched() {
+    reach('path-play');
+    var nd = document.querySelector('.ctrl.nudge'); if (nd) nd.classList.remove('nudge');
+  }
+
   function getCell(c, i, j) { var v = state[c.id] || []; return c.type === 'matrix' ? (v[i] || [])[j] : v[j]; }
   function setCell(c, i, j, v) {
     var a = state[c.id];
@@ -108,15 +161,16 @@
         head.appendChild(nb);
         var rg = el('input', { type: 'range', id: 'in-' + c.id, min: c.min, max: c.max, step: c.step });
         rg.value = state[c.id];
+        rg.style.setProperty('--fill', fillPct(c, state[c.id]));
         box.appendChild(rg);
         box.appendChild(el('div', { 'class': 'ends' }, '<span>' + esc(show(c, c.min)) + '</span><span>' + esc(show(c, c.max)) + '</span>'));
         rg.addEventListener('input', function () {
           var v = parseFloat(rg.value); if (!isFinite(v)) return;
-          state[c.id] = v; nb.value = show(c, v); changed(c);
+          state[c.id] = v; nb.value = show(c, v); rg.style.setProperty('--fill', fillPct(c, v)); changed(c);
         });
         nb.addEventListener('change', function () {
           var v = parseFloat(nb.value); if (!isFinite(v)) v = state[c.id];
-          v = clamp(c, v); state[c.id] = v; nb.value = show(c, v); rg.value = v; changed(c);
+          v = clamp(c, v); state[c.id] = v; nb.value = show(c, v); rg.value = v; rg.style.setProperty('--fill', fillPct(c, v)); changed(c);
         });
       } else if (c.type === 'number') {
         var ni = el('input', { type: 'number', 'class': 'num wide', id: 'in-' + c.id, min: c.min, max: c.max, step: c.step });
@@ -144,8 +198,10 @@
       if (c.help) box.appendChild(el('div', { 'class': 'ctrl-help' }, rich(c.help)));
       host.appendChild(box);
     });
+    if (!reached['path-play'] && host.firstChild) host.firstChild.classList.add('nudge');
   }
   function changed(c) {
+    touched();
     if (deps[c.id]) { state = P2P.normalize(C, state); deps[c.id].forEach(function (g) { buildGrid(g); }); }
     if (!raf) raf = window.requestAnimationFrame(function () { raf = 0; update(); });
   }
@@ -192,7 +248,11 @@
     if (!READY) { showError('The interactive part of this page failed to load (generated code error). The explanation text remains valid.'); return; }
     var r, ib = $('p2p-insight'), s;
     try { r = M.compute(clone(state)); } catch (e) { renderLive(null); showError('compute() failed for this input: ' + (e && e.message)); return; }
-    try { $('p2p-visual').innerHTML = String(M.view(clone(state), r)); } catch (e2) { showError('Drawing failed: ' + (e2 && e2.message)); return; }
+    try {
+      var vis = $('p2p-visual'), oldSvg = vis.querySelector('svg');
+      vis.innerHTML = String(M.view(clone(state), r));
+      try { tweenSvg(oldSvg, vis); } catch (et) { /* animation is cosmetic */ }
+    } catch (e2) { showError('Drawing failed: ' + (e2 && e2.message)); return; }
     try { renderReadout(M.readout ? M.readout(clone(state), r) : []); } catch (e3) { $('p2p-readout').innerHTML = '<p class="muted">readout() failed: ' + esc(e3 && e3.message) + '</p>'; }
     try { s = M.insight ? M.insight(clone(state), r) : ''; ib.innerHTML = s ? rich(s) : ''; ib.hidden = !s; } catch (e4) { ib.hidden = true; }
     renderLive(r);
@@ -204,7 +264,12 @@
     state = P2P.merge(C, P2P.defaults(C), e.preset || {});
     buildControls();
     update();
-    setStatus('Loaded exploration ' + (i + 1) + ': ' + plain(e.title) + '. Now follow its "Change" step.');
+    reach('path-x' + (i + 1));
+    Array.prototype.forEach.call(document.querySelectorAll('.explore'), function (x, k) {
+      x.classList.toggle('active', k === i);
+      if (k === i) x.classList.add('done');
+    });
+    setStatus('Exploration ' + (i + 1) + ' loaded: ' + plain(e.title) + '. Now do its step: change one thing and watch the picture.');
     var pg = $('playground');
     pg.scrollIntoView({ behavior: 'smooth', block: 'start' });
     pg.classList.remove('flash'); void pg.offsetWidth; pg.classList.add('flash');
@@ -260,6 +325,30 @@
     });
     update();
     runChecks();
+    initScroll();
+  }
+  /* Scroll progress bar, current-section highlight in the top bar, gentle reveal of sections, caveat milestone. */
+  function initScroll() {
+    var bar = $('p2p-progress'), links = document.querySelectorAll('.toc a'), secs = [], i;
+    for (i = 0; i < links.length; i++) { var s = document.querySelector(links[i].getAttribute('href')); if (s) secs.push([s, links[i]]); }
+    function onScroll() {
+      var h = document.documentElement, max = h.scrollHeight - h.clientHeight, y = h.scrollTop || document.body.scrollTop, cur = null, j;
+      if (bar) bar.style.width = (max > 0 ? 100 * y / max : 0) + '%';
+      for (j = 0; j < secs.length; j++) if (secs[j][0].getBoundingClientRect().top < 140) cur = secs[j][1];
+      for (j = 0; j < secs.length; j++) secs[j][1].classList.toggle('on', secs[j][1] === cur);
+      var cv = $('caveat');
+      if (cv && cv.getBoundingClientRect().top < h.clientHeight * 0.7) reach('path-caveat');
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    var rv = document.querySelectorAll('.reveal');
+    if (!('IntersectionObserver' in window) || REDUCED) { Array.prototype.forEach.call(rv, function (x) { x.classList.add('in'); }); return; }
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, { rootMargin: '0px 0px -8% 0px' });
+    Array.prototype.forEach.call(rv, function (x) { io.observe(x); });
+    // never leave content hidden (e.g. headless capture or print): reveal everything after a short delay
+    window.setTimeout(function () { Array.prototype.forEach.call(rv, function (x) { x.classList.add('in'); }); }, 1200);
   }
   window.p2p = {
     controls: C.map(function (c) { return c.id; }),

@@ -103,8 +103,33 @@ def is_full_program(code: str) -> bool:
     return {"compute", "view"} <= names
 
 
+_COL0_DECL = re.compile(r"^(?:async\s+)?(?:function\s*\*?\s*([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*))", re.M)
+
+
+def col0_names(code: str) -> set:
+    """Declarations that start at column 0: robust even when the code does not parse."""
+    return {m.group(1) or m.group(2) for m in _COL0_DECL.finditer(code or "")}
+
+
+def _splice_lines(old: str, repl: dict) -> str:
+    """Line-based splice: a declaration runs from its column-0 start to the next column-0 declaration."""
+    starts = [(m.start(), m.group(1) or m.group(2)) for m in _COL0_DECL.finditer(old)]
+    if not starts:
+        return old.rstrip() + "\n" + "\n".join(repl.values()) + "\n"
+    out, used = [old[:starts[0][0]]], set()
+    for i, (pos, name) in enumerate(starts):
+        end = starts[i + 1][0] if i + 1 < len(starts) else len(old)
+        if name in repl and name not in used:
+            out.append(repl[name].rstrip() + "\n")
+            used.add(name)
+        else:
+            out.append(old[pos:end])
+    out += [repl[k].rstrip() + "\n" for k in repl if k not in used]
+    return "".join(out)
+
+
 def apply_patch(old: str, patch: str) -> tuple:
-    """Return (new_code, changed_names, mode). mode: 'full' | 'patch' | 'unchanged'."""
+    """Return (new_code, changed_names, mode). mode: 'full' | 'patch' | 'patch-lines' | 'unchanged' | 'unparseable'."""
     patch = (patch or "").strip()
     if not patch or patch.upper() == "UNCHANGED":
         return old, [], "unchanged"
@@ -127,4 +152,12 @@ def apply_patch(old: str, patch: str) -> tuple:
         else:
             out.append(s)
     out += [repl[k] for k in repl if k not in used]
-    return "\n".join(out) + "\n", list(repl), "patch"
+    new = "\n".join(out) + "\n"
+    # If the old code did not parse (e.g. an unterminated string), the statement split can swallow later
+    # declarations; never lose one: fall back to a line-based splice and verify again.
+    if not col0_names(old) <= col0_names(new) | set(repl):
+        new = _splice_lines(old, repl)
+        if not col0_names(old) <= col0_names(new) | set(repl):
+            return old, [], "unparseable"
+        return new, list(repl), "patch-lines"
+    return new, list(repl), "patch"

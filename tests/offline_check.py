@@ -100,6 +100,19 @@ def main() -> int:
     check("lenient JSON (comments, trailing commas)", obj2 == {"a": 1, "b": [1, 2]}, err2)
     check("repair parsing (UNCHANGED)", parsing.split_repair("===SPEC_PATCH===\n{}\n===CODE===\nUNCHANGED\n===END===").code == "UNCHANGED")
 
+    # LaTeX inside JSON: "\frac" with a single backslash must not become a form feed; real escapes stay.
+    o3, _ = parsing.load_json_object('{"e": "\\frac{a}{\\sqrt{b}} \\theta", "n": "x\\ny"}')
+    check("LaTeX backslashes survive JSON parsing", o3 and o3["e"] == "\\frac{a}{\\sqrt{b}} \\theta" and o3["n"] == "x\ny", o3)
+    from p2p import mathml
+    check("LaTeX renders as MathML", "<mfrac>" in mathml.equation_html("\\frac{QK^T}{\\sqrt{d_k}}") and mathml.tex("\\text{<script>}") is None)
+    # Patch-style repairs: splice one function, never lose a declaration even when the old code is broken.
+    from p2p import jspatch
+    broken = 'function compute(p) {\n  return {a: 1};\n}\nfunction insight(p, r) {\n  return "oops\n}\nconst TESTS = [];\n'
+    nc, nm, md = jspatch.apply_patch(broken, 'function insight(p, r) {\n  return "ok";\n}')
+    check("patch keeps every declaration of broken code", {"compute", "insight", "TESTS"} <= jspatch.col0_names(nc) and "oops" not in nc, (md, nc))
+    nc2, _, md2 = jspatch.apply_patch(GOOD, "function insight(p, r) {\n  return 'x';\n}")
+    check("patch replaces one function in valid code", md2 == "patch" and nc2.count("function insight") == 1 and "function compute" in nc2, md2)
+
     spec, probs, notes = normalize_spec(json.loads(json.dumps(SPEC)), CASE)
     check("spec normalises without problems", spec is not None and not probs, probs)
     check("vector length bound to slider", spec["controls"][1]["length"] == "n" and len(spec["controls"][1]["value"]) == 3)

@@ -7,7 +7,7 @@ import json
 import re
 from urllib.parse import urlparse
 
-from . import jsbundle
+from . import jsbundle, mathml
 
 _ALLOWED = "sub|sup|i|b|em|strong|code|br"
 _ESC_TAG = re.compile(r"&lt;(/?)(" + _ALLOWED + r")\s*/?&gt;", re.I)
@@ -49,6 +49,38 @@ def rich(text) -> str:
     return _balance(e)
 
 
+def richm(text) -> str:
+    """rich() for prose, with $...$ LaTeX segments rendered as inline MathML."""
+    return mathml.inline(text, rich)
+
+
+def _equation(eq: str) -> str:
+    # Older-style Unicode/HTML equations (<sub>, <sup>) are shown as before; LaTeX becomes display MathML.
+    if re.search(r"</?(sub|sup|i|b)>", eq or "", re.I):
+        return '<div class="eq-line">' + rich(eq) + "</div>"
+    return mathml.equation_html(eq)
+
+
+def _symbol(sym: str) -> str:
+    if re.search(r"</?(sub|sup|i|b)>", sym or "", re.I):
+        return rich(sym)
+    m = mathml.tex(sym)
+    return '<span class="im">' + m + "</span>" if m else rich(sym)
+
+
+def _title_html(title) -> str:
+    """Marker-highlight the last two real words of the title (skipping a trailing "(Eq. 1)"-style suffix)."""
+    t = rich(title)
+    m = re.match(r"^(.*?)(\s*[(\[][^()\[\]]*[)\]]\s*)?$", t)
+    head, tail = (m.group(1), m.group(2) or "") if m else (t, "")
+    words = head.split(" ")
+    if len(words) < 2 or "<" in head:
+        return t
+    small = {"a", "an", "and", "the", "of", "in", "on", "to", "for", "with", "by", "vs", "vs."}
+    k = 2 if len(words) > 2 and words[-2].lower() not in small else 1
+    return " ".join(words[:-k]) + ' <span class="hl">' + " ".join(words[-k:]) + "</span>" + tail
+
+
 def plain(text) -> str:
     s = re.sub(r"<[^>]*>", "", "" if text is None else str(text))
     return html.escape(_CTRL.sub("", s).strip(), quote=True)
@@ -86,7 +118,7 @@ def _citation(spec, case) -> str:
     if ay:
         bits.append(rich(ay))
     if paper.get("section"):
-        bits.append(rich(paper["section"]))
+        bits.append(richm(paper["section"]))
     url = _safe_url(paper.get("url") or case.get("source_url"))
     if url:
         short = re.sub(r"^https?://", "", url)
@@ -97,39 +129,41 @@ def _citation(spec, case) -> str:
 
 def _idea(spec) -> str:
     paper = spec.get("paper", {})
-    h = ['<p class="lede">' + rich(spec.get("idea")) + "</p>"]
+    left = ['<p class="lede">' + richm(spec.get("idea")) + "</p>"]
     if spec.get("why"):
-        h.append('<div class="why"><b>Why it matters.</b> ' + rich(spec["why"]) + "</div>")
+        left.append('<div class="why"><b>Why it matters.</b> ' + richm(spec["why"]) + "</div>")
+    right = []
     if spec.get("equation"):
-        h.append('<div class="eq" role="math">' + rich(spec["equation"]) + "</div>")
-        if paper.get("section"):
-            h.append('<div class="eq-src">From the source: ' + rich(paper["section"]) + "</div>")
+        src = ('<div class="eq-src">' + richm(paper["section"]) + "</div>") if paper.get("section") else ""
+        right.append('<div class="eq" role="math">' + _equation(spec["equation"]) + src + "</div>")
     syms = spec.get("symbols") or []
     if syms:
-        rows = "".join('<tr><td class="s">' + rich(s["sym"]) + "</td><td>" + rich(s["meaning"]) + "</td></tr>" for s in syms)
-        h.append('<h3>Symbols</h3><table class="sym"><thead><tr><th>Symbol</th><th>Meaning</th></tr></thead><tbody>'
-                 + rows + "</tbody></table>")
-    return "".join(h)
+        rows = "".join('<tr><td class="s">' + _symbol(s["sym"]) + "</td><td>" + richm(s["meaning"]) + "</td></tr>" for s in syms)
+        right.append('<h3>What each symbol means</h3><table class="sym"><tbody>' + rows + "</tbody></table>")
+    return ('<div class="idea-grid reveal"><div>' + "".join(left) + "</div><div>" + "".join(right) + "</div></div>")
 
 
 def _explorations(spec) -> str:
     out = []
     for i, e in enumerate(spec.get("explorations", [])[:2]):
+        n = str(i + 1)
         out.append(
-            '<article class="explore"><div><span class="tag">Exploration ' + str(i + 1) + "</span></div>"
-            "<h3>" + rich(e.get("title")) + "</h3>"
-            '<dl class="steps"><dt>Change</dt><dd>' + rich(e.get("change")) + "</dd>"
-            '<div class="reveal-q"><dt>Predict</dt><dd>Before looking, decide what you expect to happen and why. <button type="button" class="btn small ghost" id="reveal-' + str(i + 1) + '" data-reveal="' + str(i + 1) + '">Reveal</button></dd></div><div class="reveal-a" id="answer-' + str(i + 1) + '"><dt>Observe</dt><dd>' + rich(e.get("observe")) + "</dd>"
-            "<dt>Why</dt><dd>" + rich(e.get("why")) + "</dd></div></dl>"
-            '<div><button type="button" class="btn" id="explore-' + str(i + 1) + '" data-explore="' + str(i) + '">Load the starting state</button></div></article>')
+            '<article class="explore reveal" id="exploration-' + n + '"><div><span class="tag">Exploration ' + n + "</span></div>"
+            "<h3>" + richm(e.get("title")) + "</h3>"
+            '<dl class="steps"><dt class="k-do">Do</dt><dd>' + richm(e.get("change")) + "</dd>"
+            '<div class="reveal-q"><dt class="k-pred">Guess</dt><dd>What do you expect, and why? <button type="button" class="btn small ghost" id="reveal-' + n + '" data-reveal="' + n + '">Reveal</button></dd></div>'
+            '<div class="reveal-a" id="answer-' + n + '"><dt class="k-obs">See</dt><dd>' + richm(e.get("observe")) + "</dd>"
+            '<dt class="k-why">Why</dt><dd>' + richm(e.get("why")) + "</dd></div></dl>"
+            '<div><button type="button" class="btn" id="explore-' + n + '" data-explore="' + str(i) + '">Load the starting state &rarr;</button></div></article>')
     return "".join(out)
 
 
 def _grounding(spec) -> str:
     g = spec.get("grounding", {})
-    return ('<div class="ground"><div class="gcol src"><h3>Supported by the source excerpt</h3><ul>'
-            + _li(g.get("from_source") or ["(none listed)"]) + '</ul></div><div class="gcol ours"><h3>Our examples, '
-            'simplifications and background</h3><ul>' + _li(g.get("ours") or ["(none listed)"]) + "</ul></div></div>"
+    lim = lambda xs: "".join("<li>" + richm(x) + "</li>" for x in xs)
+    return ('<div class="ground reveal"><div class="gcol src"><h3>Supported by the source excerpt</h3><ul>'
+            + lim(g.get("from_source") or ["(none listed)"]) + '</ul></div><div class="gcol ours"><h3>Our examples, '
+            'simplifications and background</h3><ul>' + lim(g.get("ours") or ["(none listed)"]) + "</ul></div></div>"
             '<p class="disclaimer"><b>Scope.</b> Every number in the playground is computed live from small, illustrative '
             "inputs chosen for teaching. The page demonstrates the mechanism described in the excerpt; it does not "
             "reproduce the paper&#x27;s experiments or reported results. The paper itself was not fetched during "
@@ -166,15 +200,16 @@ def render_page(spec: dict, code: str, model: str, case: dict, checks_info=None)
                                      for e in spec.get("explorations", [])]}
     values = {
         "TITLE_TEXT": plain(spec.get("title")),
-        "TITLE": rich(spec.get("title")),
+        "TITLE": _title_html(spec.get("title")),
+        "SECTION_SHORT": plain((spec.get("paper") or {}).get("section"))[:80] or "Research paper",
         "CITATION": _citation(spec, case),
-        "AUDIENCE": ('<div class="aud">Written for: ' + rich(aud) + "</div>") if aud else "",
+        "AUDIENCE": ('<div class="aud">Written for ' + rich(aud[:1].lower() + aud[1:] if aud[:2].istitle() else aud) + "</div>") if aud else "",
         "IDEA": _idea(spec),
-        "CAPTION": rich(spec.get("visual_caption") or "Change the controls and watch the visual and the values update."),
-        "CAPTION_ATTR": plain(spec.get("visual_caption") or "Interactive visual")[:300],
+        "CAPTION": richm(spec.get("visual_caption") or "Change the controls and watch the visual and the values update."),
+        "CAPTION_ATTR": plain(re.sub(r"\$([^$]*)\$", r"\1", spec.get("visual_caption") or "Interactive visual"))[:300],
         "EXPLORATIONS": _explorations(spec),
         "MISC_KIND": plain(kind),
-        "MISC": '<span class="k">' + plain(kind) + "</span><p>" + rich(mis.get("text")) + "</p>",
+        "MISC": '<span class="k">' + plain(kind) + "</span><p>" + richm(mis.get("text")) + "</p>",
         "GROUNDING": _grounding(spec) + _excerpt_html(case),
         "CHECK_NOTE": _check_note(checks_info),
         "FOOTER": ("Generated by Paper-to-Playground with <code>" + html.escape(model or "") + "</code> on "

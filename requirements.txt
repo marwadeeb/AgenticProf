@@ -7,3 +7,5 @@ charset-normalizer==3.4.0
 idna==3.10
 urllib3==2.2.3
 quickjs==1.19.4; python_version < "3.13" and (platform_machine == "x86_64" or platform_machine == "AMD64" or sys_platform == "darwin")
+# Pure-Python LaTeX -> MathML: equations render in textbook form natively in the browser (no JS, no CDN, no fonts).
+latex2mathml==3.81.1

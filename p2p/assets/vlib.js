@@ -5,9 +5,9 @@
 var V = (function () {
   'use strict';
   var C = {
-    ink: '#1e293b', muted: '#64748b', grid: '#e2e8f0', axis: '#94a3b8', bg: '#ffffff', panel: '#f8fafc',
-    blue: '#2563eb', orange: '#ea580c', green: '#16a34a', red: '#dc2626', purple: '#7c3aed',
-    teal: '#0d9488', pink: '#db2777', gray: '#6b7280', yellow: '#ca8a04'
+    ink: '#1c1917', muted: '#6b6359', grid: '#ebe4d6', axis: '#a8a092', bg: '#fffdf8', panel: '#f6f1e7',
+    blue: '#1f5f8b', orange: '#e4572e', green: '#2a9d8f', red: '#c0392b', purple: '#6a4c93',
+    teal: '#17a398', pink: '#d1495b', gray: '#7a7266', yellow: '#e9a23b'
   };
   C.series = [C.blue, C.orange, C.green, C.red, C.purple, C.teal, C.pink, C.gray];
   var ALIAS = { size: 'font-size', anchor: 'text-anchor', weight: 'font-weight', dash: 'stroke-dasharray',
@@ -108,15 +108,15 @@ var V = (function () {
   function v_div(v, m) {
     m = Math.abs(v_num(m, 1)) || 1;
     var t = Math.max(-1, Math.min(1, v / m));
-    return t >= 0 ? v_mix('#f8fafc', PAL.divPos, t) : v_mix('#f8fafc', PAL.divNeg, -t);
+    return t >= 0 ? v_mix('#fbf8f2', PAL.divPos, t) : v_mix('#fbf8f2', PAL.divNeg, -t);
   }
   function v_ink(bg) { var c = v_hex(bg); return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255 > 0.58 ? C.ink : '#ffffff'; }
 
   var DEF = { blue: C.blue, orange: C.orange, green: C.green, red: C.red, purple: C.purple, teal: C.teal,
     pink: C.pink, gray: C.gray, yellow: C.yellow, ink: C.ink, muted: C.muted };
-  var PAL = { heatLo: '#f1f5f9', heatHi: '#1d4ed8', divNeg: '#dc2626', divPos: '#2563eb' };
+  var PAL = { heatLo: '#fbf6ec', heatHi: '#1f5f8b', divNeg: '#e4572e', divPos: '#1f5f8b' };
   var PALETTES = {
-    standard: { colors: {}, heatLo: '#f1f5f9', heatHi: '#1d4ed8', divNeg: '#dc2626', divPos: '#2563eb' },
+    standard: { colors: {}, heatLo: '#fbf6ec', heatHi: '#1f5f8b', divNeg: '#e4572e', divPos: '#1f5f8b' },
     colorblind: { colors: { blue: '#0072B2', orange: '#E69F00', green: '#009E73', red: '#D55E00', purple: '#CC79A7',
       teal: '#56B4E9', pink: '#882255', gray: '#666666', yellow: '#B8A000' }, heatLo: '#f7fbff', heatHi: '#08306b', divNeg: '#D55E00', divPos: '#0072B2' },
     contrast: { colors: { blue: '#0033cc', orange: '#c2410c', green: '#047857', red: '#b91c1c', purple: '#6d28d9', teal: '#0e7490',
@@ -133,7 +133,7 @@ var V = (function () {
   }
   function v_svg(w, h) {
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + v_r2(v_num(w, 760)) + ' ' + v_r2(v_num(h, 420)) +
-      '" role="img" font-family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="13" style="width:100%;height:auto;display:block">' +
+      '" role="img" font-family="Inter, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif" font-size="13" style="width:100%;height:auto;display:block">' +
       v_kids(SLICE.call(arguments, 2)) + '</svg>';
   }
   function v_g(a) {

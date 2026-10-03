@@ -8,6 +8,8 @@ out/
 runs/
 runs_*/
 .claude/
+*.pdf
+*.zip
 .DS_Store
 .idea/
 .vscode/

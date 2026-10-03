@@ -1,0 +1,5 @@
+{
+  "source_url": "https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf",
+  "focus": "Section 6: discrete entropy H = -sum p_i log2 p_i of a small probability distribution. The learner changes the distribution and the number of outcomes, sees each p_i, each contribution -p_i log2 p_i, and total entropy in bits. Compare a certain outcome with equally likely outcomes. Certainty gives 0 bits; four equally likely outcomes give 2 bits; zero probabilities contribute 0.",
+  "audience": "engineering undergraduate who knows basic probability and logarithms"
+}

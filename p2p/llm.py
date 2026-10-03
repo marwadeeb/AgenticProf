@@ -92,7 +92,9 @@ class OpenRouterClient:
             if tl < 20:
                 raise LLMUnavailable("time budget exhausted")
             mt = int(min(max_tokens, cap))
-            body = {"model": self.model, "messages": messages, "max_tokens": mt, "usage": {"include": True}}
+            # Same model, but route to the fastest provider: unsorted routing varied 18 s to 166 s per call.
+            body = {"model": self.model, "messages": messages, "max_tokens": mt, "usage": {"include": True},
+                    "provider": {"sort": os.getenv("P2P_PROVIDER_SORT", "throughput")}}
             if self.temperature is not None:
                 body["temperature"] = self.temperature
             if self.reasoning:

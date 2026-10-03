@@ -156,7 +156,8 @@ def _interpret(rep: dict, code: str, res: dict) -> dict:
         res["tests"].append(item)
         if not item["pass"]:
             res["failures"].append('TEST "' + item["name"] + '" failed'
-                                   + (": " + item["error"] if item.get("error") else " (check returned false)."))
+                                   + (": " + item["error"] if item.get("error") else " (check returned false; "
+                                      + str(t.get("detail") or "no values") + ")."))
     if not res["tests"]:
         res["failures"].append("No TESTS were defined; add 3-6 executable checks (const TESTS = [...]).")
     elif len(res["tests"]) < 3:

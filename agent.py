@@ -76,18 +76,25 @@ class Pipeline:
             return self._fail("SPEC unusable: " + "; ".join(best.failures[:3]))
         if best.spec.get("plan"):
             self.trace.event("plan", "model_plan", "ok", plan=best.spec["plan"])
-        rounds = 0
+        rounds, retry = 0, False
         while best.failures and rounds < self.max_repairs:
             rounds += 1
-            cand = self._revise(best, rounds)
+            cand = self._revise(best, rounds, retry)
             if cand is None:
                 break
             if cand.score < best.score:
                 self.trace.event("revise", "accept_revision", "accepted", round=rounds, score_before=best.score, score_after=cand.score)
-                best = cand
+                best, retry = cand, False
             else:
                 self.trace.event("revise", "accept_revision", "rejected", round=rounds, score_before=best.score,
                                  score_after=cand.score, reason="revision did not reduce check failures; kept previous candidate")
+                # Measured on the practice cases: another round after a rejected repair never helped, so stop and
+                # save the tokens unless the page is still broken (crash / NaN), where one escalated retry is worth it.
+                if not best.fatal and not any(f.startswith(("Exception", "Displayed output")) for f in best.failures):
+                    self.trace.event("revise", "stop", "no_progress", round=rounds,
+                                     reason="repair made no progress on non-fatal issues; keeping the best candidate to save tokens")
+                    break
+                retry = True
         return self._finish(best, rounds)
 
     def _generate(self, messages):
@@ -153,19 +160,26 @@ class Pipeline:
                          check_seconds=js.get("duration_s"), score=cand.score)
         return cand
 
-    def _revise(self, best, rnd):
+    def _revise(self, best, rnd, retry=False):
         if not self.llm.can_afford(3000) or self.time_left() < 75:
             self.trace.event("revise", "skip", "budget", round=rnd, requests_used=self.llm.requests_made,
                              completion_tokens_used=self.llm.completion_tokens, seconds_left=round(self.time_left(), 1))
             return None
         include_excerpt = any(f.startswith("TEST") or "INVARIANT" in f for f in best.failures)
-        msgs = prompts.repair_messages(self.case, best.spec, best.code, best.failures, best.warnings, include_excerpt)
-        self.trace.event("revise", "build_repair_prompt", "ok", round=rnd, problems=len(best.failures), include_excerpt=include_excerpt)
+        msgs = prompts.repair_messages(self.case, best.spec, best.code, best.failures, best.warnings, include_excerpt, retry)
+        self.trace.event("revise", "build_repair_prompt", "ok", round=rnd, problems=len(best.failures),
+                         include_excerpt=include_excerpt, retry_after_failed_fix=retry)
+        saved_temp = getattr(self.llm, "temperature", None)
+        if retry and saved_temp is not None:
+            self.llm.temperature = 0.7
         try:
             res = self.llm.chat(msgs, stage="revise", purpose="repair_" + str(rnd), max_tokens=REPAIR_MAX_TOKENS)
         except LLMUnavailable as exc:
             self.trace.event("revise", "llm_call", "unavailable", round=rnd, error=str(exc))
             return None
+        finally:
+            if saved_temp is not None:
+                self.llm.temperature = saved_temp
         rp = parsing.split_repair(res["text"])
         spec = json.loads(json.dumps(best.spec))
         changed = []

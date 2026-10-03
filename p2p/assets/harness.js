@@ -30,6 +30,52 @@ function __hBad(text, svg) {
   return out;
 }
 
+/* Diagnostics for repair prompts: the model can only fix a bug it can see, so failures carry values. */
+function __hBadPaths(x, path, out, depth) {
+  var k, i;
+  depth = depth || 0;
+  if (out.length >= 4 || depth > 6) return out;
+  if (typeof x === 'number' && !isFinite(x)) out.push(path + ' = ' + x);
+  else if (x === undefined) out.push(path + ' = undefined');
+  else if (Array.isArray(x)) { for (i = 0; i < x.length; i++) __hBadPaths(x[i], path + '[' + i + ']', out, depth + 1); }
+  else if (x && typeof x === 'object') { for (k in x) if (Object.prototype.hasOwnProperty.call(x, k)) __hBadPaths(x[k], path + '.' + k, out, depth + 1); }
+  return out;
+}
+
+/* Compact view of a result object: scalars first (they are what tests compare), large arrays by shape. */
+function __hBrief(r, n) {
+  var num = function (v) { return typeof v === 'number' ? (isFinite(v) ? String(+v.toPrecision(5)) : String(v)) : v === undefined ? 'undefined' : JSON.stringify(v); };
+  var arr = function (a, depth) {
+    if (!Array.isArray(a)) return a !== null && typeof a === 'object' ? '{...}' : num(a);
+    if (depth > 0 || a.length > 6 || (a.length && typeof a[0] === 'object')) {
+      var shape = [a.length], x = a[0];
+      while (Array.isArray(x)) { shape.push(x.length); x = x[0]; }
+      if (shape.length === 1 && typeof a[0] !== 'object') return '[' + a.slice(0, 4).map(num).join(',') + ',... (' + a.length + ')]';
+      return '[' + shape.join('x') + ' array]';
+    }
+    return '[' + a.map(num).join(',') + ']';
+  };
+  n = n || 360;
+  if (r === null || typeof r !== 'object' || Array.isArray(r)) return arr(r, 0).slice(0, n);
+  var keys = Object.keys(r), scal = [], rest = [];
+  keys.forEach(function (k) { (r[k] === null || typeof r[k] !== 'object' ? scal : rest).push(k); });
+  var s = scal.concat(rest).map(function (k) { return k + '=' + arr(r[k], 0); }).join(', ');
+  return s.length > n ? s.slice(0, n) + '...' : s;
+}
+
+function __hBadReadout(ro) {
+  var out = [], i, it, t;
+  if (!Array.isArray(ro)) return out;
+  for (i = 0; i < ro.length && out.length < 3; i++) {
+    it = ro[i];
+    t = __hText(it);
+    var m = /\bNaN\b|\bundefined\b/.exec(t);
+    if (m) out.push('readout item "' + (it && it.label !== undefined ? it.label : (it && it.table && it.table.title) || i) + '" shows ...' +
+      t.slice(Math.max(0, m.index - 60), m.index + 20) + '...');
+  }
+  return out;
+}
+
 function __hErr(e) {
   var s, lines, keep = [], i, L;
   if (e === null || e === undefined) return String(e);
@@ -70,9 +116,23 @@ function __hTry(label, p, rep, sev) {
   rep.cases++;
   try { o = __hRender(p); } catch (e) { __hNote(rep, sev, 'Exception: ' + __hErr(e), label); return null; }
   var bad = __hBad(o.svg + ' ' + o.ro + ' ' + o.ins, o.svg);
-  if (bad.length) __hNote(rep, sev, 'Displayed output contains ' + bad.join(', ') + '; guard the computation or formatting', label);
+  if (bad.length) {
+    var where = __hBadPaths(o.r, 'r', []);
+    if (!where.length) where = __hBadReadout(o.roRaw);
+    if (!where.length) {
+      var hit = function (name, text) {
+        var m = /\bNaN\b|\bundefined\b/.exec(text);
+        if (m) where.push(name + ' contains ...' + text.slice(Math.max(0, m.index - 60), m.index + 20) + '...');
+      };
+      hit('insight(p, r)', o.ins);
+      hit('view(p, r) SVG text', o.svg.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '));
+      if (!where.length) hit('view(p, r) SVG markup', o.svg);
+    }
+    __hNote(rep, sev, 'Displayed output contains ' + bad.join(', ') + (where.length ? ': ' + where.join('; ') : '') +
+      '; fix the computation or formatting that produces it', label);
+  }
   var inv = __hInv(o.r, p);
-  if (inv) __hNote(rep, sev, 'INVARIANT failed: ' + inv, label);
+  if (inv) __hNote(rep, sev, 'INVARIANT failed: ' + inv + '; compute gave ' + __hBrief(o.r, 240), label);
   return o;
 }
 
@@ -171,8 +231,20 @@ function __hRun(cfgJSON) {
     var t = T[i] || {}, res = { name: t.name ? String(t.name) : 'test ' + (i + 1), pass: false };
     try {
       if (typeof t.check !== 'function') throw new Error('TESTS[' + i + '].check must be a function (r, p) => boolean');
-      var tp = P2P.merge(C, base, (t.params && typeof t.params === 'object') ? t.params : {});
-      res.pass = !!t.check(M.compute(__hClone(tp)), tp);
+      var tparams = (t.params && typeof t.params === 'object') ? t.params : {};
+      var unknown = Object.keys(tparams).filter(function (key) { return !C.some(function (cc) { return cc.id === key; }); });
+      if (unknown.length) throw new Error('params use unknown control id(s) ' + unknown.join(', ') + ' (valid ids: ' + C.map(function (cc) { return cc.id; }).join(', ') + '), so they were ignored');
+      var tp = P2P.merge(C, base, tparams);
+      var resized = Object.keys(tparams).filter(function (key) {
+        var a = tparams[key], b = tp[key];
+        return Array.isArray(a) && Array.isArray(b) && (a.length !== b.length || (Array.isArray(a[0]) && Array.isArray(b[0]) && a[0].length !== b[0].length));
+      });
+      if (resized.length) throw new Error('params.' + resized[0] + ' has a different size from the control (it was padded/truncated to ' +
+        (Array.isArray(tp[resized[0]][0]) ? tp[resized[0]].length + 'x' + tp[resized[0]][0].length : tp[resized[0]].length) +
+        '); also set the size control in params, or give an array of the current size');
+      var tr = M.compute(__hClone(tp));
+      res.pass = !!t.check(tr, tp);
+      if (!res.pass) res.detail = 'params ' + __hBrief(tparams, 120) + ', compute gave ' + __hBrief(tr);
     } catch (e) { res.error = __hErr(e); }
     rep.tests.push(res);
   }

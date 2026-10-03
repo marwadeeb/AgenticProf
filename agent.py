@@ -285,6 +285,9 @@ def main(argv=None) -> int:
         trace.event("setup", "start", "ok", model=args.model, python=sys.version.split()[0], js_engine=checks.engine_available(),
                     limits={"requests": MAX_REQUESTS, "completion_tokens": MAX_COMPLETION_TOKENS, "seconds": HARD_LIMIT_S,
                             "internal_deadline_s": HARD_LIMIT_S - SAFETY_S, "max_repairs": MAX_REPAIRS})
+        if not checks.engine_available():
+            print("WARNING: no JavaScript engine (quickjs) on Python " + sys.version.split()[0] + ": executable checks are "
+                  "skipped. Use Python 3.11 with requirements.txt installed.", file=sys.stderr)
         case = _load_case(args.input, trace)
         if case is None:
             (out_dir / "index.html").write_text(render.render_fallback({}, "invalid case.json"), encoding="utf-8")

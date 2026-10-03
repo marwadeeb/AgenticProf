@@ -33,6 +33,14 @@ def main() -> int:
     ap.add_argument("--cases", default=str(ROOT / "examples" / "cases"))
     ap.add_argument("--out", default=str(ROOT / "runs"))
     args = ap.parse_args()
+    sys.path.insert(0, str(ROOT))
+    from p2p.checks import engine_available
+    if sys.version_info[:2] != (3, 11) or not engine_available():
+        # A run without the JS engine executes no checks, so every case "succeeds" untested: never let that pass silently.
+        print("=" * 78 + "\nWARNING: Python %s, JavaScript engine available: %s.\nThe assessment uses Python 3.11 with "
+              "quickjs; without it NO executable checks run and results are not comparable.\nUse the project venv: "
+              ".venv\\Scripts\\python.exe tools/run_cases.py ...  (macOS/Linux: .venv/bin/python)\n" % (
+                  sys.version.split()[0], engine_available()) + "=" * 78)
     rows = []
     for case in sorted(Path(args.cases).glob("*.json")):
         out = Path(args.out) / case.stem

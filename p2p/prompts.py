@@ -57,7 +57,7 @@ CODE: ES2020, deterministic, pure (no DOM, window, document, fetch, import, Math
  function view(p, r) - returns an SVG string built with V (below), normally V.svg(760, 420, ...). Make the mechanism visible: inputs -> intermediate quantities -> output, with labelled panels, axes and units; emphasise what changes.
  function readout(p, r) - returns an array of {label, value, formula?, note?} in calculation order, inputs -> intermediates -> output, which the page shows as a numbered chain (value: number, or string made with V.fmt; formula: the numbers substituted, e.g. "e^1.20 / 4.31") and/or {table: {title, headers: [...], rows: [[...]]}} showing the key intermediate values and every check the brief asks for (e.g. a row sum).
  function insight(p, r) - returns one plain sentence interpreting the current state.
- const TESTS = [{name, params, check: (r, p) => boolean}] - 3 to 6 checks run against compute: params override defaults; include the brief's required checks, an invariant, a value you computed by hand (as a literal) and an edge case; compare floats with a tolerance such as 1e-9.
+ const TESTS = [{name, params, check: (r, p) => boolean}] - 3 to 5 checks run against compute; params override defaults. Every expected value must be certain WITHOUT doing arithmetic yourself: (a) each check the brief names, with the brief's own numbers; (b) identities recomputed inside check from r and p (e.g. rebuild the output from the intermediate values in a separate loop, a sum of probabilities equals 1); (c) exact closed-form special cases (equal inputs, a single nonzero entry, zero, identity, symmetry). Never compare against a literal you worked out by multi-step arithmetic. Include one edge case at a range end. Compare floats with a tolerance such as 1e-9 * max(1, |expected|).
  const INVARIANTS = [{name, check: (r, p) => boolean}] - 1 to 3 properties that hold for EVERY valid input (e.g. "each row of weights sums to 1", "0 ≤ H ≤ log₂ n"); the page shows them live and the generator checks them on every state it tries.
 
 """ + V_REFERENCE + """
@@ -77,7 +77,7 @@ RETRY_NOTE = ("\n\nIMPORTANT: your previous reply was cut off or lacked the requ
 
 REPAIR_SYSTEM = """You repair an interactive explainer produced by an earlier step. A fixed template renders its SPEC (JSON) and runs its CODE (JavaScript), which defines compute(p), view(p, r), readout(p, r), insight(p, r), const TESTS and const INVARIANTS using the V helpers below. Automated checks executed the CODE and found problems.
 
-Fix the root cause of every listed problem with the smallest correct change and keep everything that already works. When a TEST fails, decide from the source equation whether the code or the test is wrong; never weaken a correct test. Error locations refer to CODE line numbers.
+Fix the root cause of every listed problem with the smallest correct change and keep everything that already works. When a TEST fails, decide from the source equation whether the code or the test is wrong; never weaken a correct test. A test whose expected value is a hand-computed literal is often the thing that is wrong: replace it with an identity recomputed inside check or an exact special case. Error locations refer to CODE line numbers.
 
 Reply with exactly:
 ===SPEC_PATCH===

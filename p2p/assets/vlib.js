@@ -415,9 +415,23 @@ var P2P = (function () {
   }
   function p2p_defaults(C) { return p2p_normalize(C, {}); }
   function p2p_merge(C, base, over) {
-    var p = {}, k;
+    var p = {}, k, i, c;
     for (k in base) if (HAS.call(base, k)) p[k] = base[k];
     if (over) for (k in over) if (HAS.call(over, k)) p[k] = over[k];
+    /* A preset/test that gives a whole vector or matrix but not its size slider means "use this size":
+       set the slider from the array instead of padding/truncating the array to the old size. */
+    var bySize = function (sizeId, n) {
+      if (typeof sizeId === 'string' && over && !HAS.call(over, sizeId) && n > 0) p[sizeId] = n;
+    };
+    for (i = 0; over && i < C.length; i++) {
+      c = C[i];
+      if (!HAS.call(over, c.id) || !Array.isArray(over[c.id])) continue;
+      if (c.type === 'vector') bySize(c.length, over[c.id].length);
+      else if (c.type === 'matrix') {
+        bySize(c.rows, over[c.id].length);
+        if (Array.isArray(over[c.id][0])) bySize(c.cols, over[c.id][0].length);
+      }
+    }
     return p2p_normalize(C, JSON.parse(JSON.stringify(p)));
   }
   return { normalize: p2p_normalize, defaults: p2p_defaults, merge: p2p_merge };

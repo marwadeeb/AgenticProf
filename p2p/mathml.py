@@ -97,10 +97,25 @@ def _ascii_to_tex(t: str):
     return "".join(out)
 
 
+# "n = 4", "p ≤ 0.5", "d_k = 64": a single-letter variable (optional short subscript), a relation, a number.
+_REL = re.compile(r"(?<![\w$\\/.])([A-Za-zα-ωΑ-Ω](?:_\{?[A-Za-z0-9]{1,6}\}?)?)\s*(=|≤|≥|<|>|≈|≠)\s*([−-]?\d+(?:\.\d+)?)(?![\w.]*\w)")
+_REL_TEX = {"≤": r"\le ", "≥": r"\ge ", "≈": r"\approx ", "≠": r"\ne ", "<": "<", ">": ">", "=": "="}
+
+
 def _ascii_math(seg: str, rich) -> str:
-    """Prose without $...$: convert clearly mathematical tokens (with ^, short _subscripts, sqrt) to MathML."""
+    """Prose without $...$: convert clearly mathematical tokens (^, short _subscripts, sqrt, 'n = 4') to MathML."""
+    spans = []
+    for m in _REL.finditer(seg):
+        if m.group(1) in ("a", "A", "I"):  # articles / pronoun, not variables
+            continue
+        src = (_ascii_to_tex(m.group(1)) or m.group(1)) + " " + _REL_TEX[m.group(2)] + " " + m.group(3).replace("−", "-")
+        mm = tex(src)
+        if mm:
+            spans.append((m.start(), m.end(), mm))
     out, pos = [], 0
     for m in _ASCII_TOKEN.finditer(seg):
+        if any(s <= m.start() < e for s, e, _ in spans):
+            continue
         tok = m.group(1)
         # leave trailing sentence punctuation and unbalanced closing brackets outside the formula
         core = tok.rstrip(".,;:")
@@ -114,11 +129,14 @@ def _ascii_math(seg: str, rich) -> str:
             continue
         tex_src = _ascii_to_tex(core)
         mm = tex(tex_src) if tex_src else None
-        if not mm:
+        if mm:
+            spans.append((m.start(), m.start() + len(core), mm))
+    for s, e, mm in sorted(spans):
+        if s < pos:
             continue
-        out.append(rich(seg[pos:m.start()]))
+        out.append(rich(seg[pos:s]))
         out.append('<span class="im">' + mm + "</span>")
-        pos = m.start() + len(core)
+        pos = e
     out.append(rich(seg[pos:]))
     return "".join(out)
 
@@ -127,7 +145,7 @@ def inline(text: str, rich) -> str:
     """Apply `rich` to prose and convert $...$ segments (and clear plain-text maths) to inline MathML."""
     s = "" if text is None else str(text)
     out, pos = [], 0
-    plain_rich = lambda seg: _ascii_math(seg, rich) if re.search(r"\^|_[A-Za-z0-9({]|sqrt\(", seg) and "<" not in seg else rich(seg)
+    plain_rich = lambda seg: _ascii_math(seg, rich) if (re.search(r"\^|_[A-Za-z0-9({]|sqrt\(", seg) or _REL.search(seg)) and "<" not in seg else rich(seg)
     for m in _INLINE.finditer(s):
         out.append(plain_rich(s[pos:m.start()]))
         mm = tex(m.group(1))

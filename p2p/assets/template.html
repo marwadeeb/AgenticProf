@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="Paper-to-Playground">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%23e4572e'/%3E%3C/svg%3E">
 <title>{{TITLE_TEXT}}</title>
 <style>
 :root{color-scheme:light;
@@ -189,7 +190,7 @@ ul.tests code{font-size:11.5px;color:var(--muted);background:none;padding:0}ul.t
 .muted{color:var(--muted)}.small{font-size:12.5px;font-weight:400}
 footer{color:var(--muted);font-size:13px;padding:10px 0 50px;text-align:center}
 .flash{animation:flash 1.3s ease-out}@keyframes flash{0%{box-shadow:0 0 0 0 rgba(228,87,46,.5)}100%{box-shadow:0 0 0 22px rgba(228,87,46,0)}}
-.hide-details .details,.hide-details .ctrl-help{display:none}
+.hide-details .details,.hide-details .ctrl-help,.hide-details .eq-live,.hide-details blockquote.q,.hide-details .eq-src,.hide-details .ends{display:none!important}
 .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}.reveal.in{opacity:1;transform:none}
 @media print{.topbar,.btns,button,#p2p-progress,.path{display:none}.reveal{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
@@ -213,7 +214,7 @@ body.dark{--paper:#151311;--sheet:#1d1a17;--ink:#f1ece2;--ink2:#d6cfc2;--muted:#
 <label for="set-theme">Theme <select id="set-theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
 <label for="set-palette">Colours <select id="set-palette"><option value="standard">Standard</option><option value="colorblind">Colour-blind safe</option><option value="contrast">High contrast</option><option value="grayscale">Greyscale</option></select></label>
 <label for="set-size">Text size <select id="set-size"><option value="0.9">90%</option><option value="1" selected>100%</option><option value="1.12">112%</option><option value="1.25">125%</option></select></label>
-<label>Formulas and notes <input type="checkbox" id="set-details" checked></label>
+<label id="lbl-details">Worked formulas, notes and quotes <input type="checkbox" id="set-details" checked></label>
 <label>Quiz me (hide answers) <input type="checkbox" id="set-predict"></label>
 </div></details>
 </div></div>

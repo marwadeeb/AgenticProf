@@ -136,6 +136,11 @@
     rest.push(stateHash());
     try { window.history.replaceState(null, '', '#' + rest.join('&')); } catch (e) { /* file:// or sandbox */ }
   }
+  // A setting that visibly does nothing looks broken: hide it when the page has nothing for it to toggle.
+  function syncDetailsLabel() {
+    var lbl = $('lbl-details');
+    if (lbl) lbl.hidden = !document.querySelector('.details, .ctrl-help, .eq-live:not([hidden]), blockquote.q, .eq-src, .ends');
+  }
   function fillPct(c, v) { return (isNum(c.min) && isNum(c.max) && c.max > c.min) ? (100 * (v - c.min) / (c.max - c.min)) + '%' : '50%'; }
 
   /* "Your path": small milestones that make progress visible (move a control, both explorations, the caveat). */
@@ -375,6 +380,7 @@
     if (V.setPalette) V.setPalette(val('set-palette', 'standard'));
     b.style.zoom = String(val('set-size', '1'));
     b.classList.toggle('hide-details', !val('set-details', true));
+    syncDetailsLabel();
     b.classList.toggle('predict', !!val('set-predict', false));
     if (rerender) update();
   }
@@ -400,6 +406,7 @@
       b.addEventListener('click', function () { var a = $('answer-' + b.getAttribute('data-reveal')); if (a) a.classList.add('shown'); b.disabled = true; b.textContent = 'Revealed'; });
     });
     try { update(); } catch (e) { showError('The playground could not start: ' + (e && e.message) + '. The explanation remains valid.'); }
+    try { syncDetailsLabel(); } catch (e) { /* optional */ }
     try { runChecks(); } catch (e) { var ts = $('p2p-tests-summary'); if (ts) ts.textContent = 'Checks could not run: ' + (e && e.message); }
     try { initScroll(); } catch (e) { Array.prototype.forEach.call(document.querySelectorAll('.reveal'), function (x) { x.classList.add('in'); }); }
   }

@@ -157,13 +157,21 @@ table.tbl td:first-child,table.tbl th:first-child{text-align:left}
 .explore h3{margin:10px 0 12px;font-size:21px}
 dl.steps{margin:0 0 16px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 14px;flex:1}
 dl.steps dt{font:700 11px/22px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--ocean);border-radius:6px;padding:0 8px;height:22px;align-self:start;text-align:center}
-dl.steps dt.k-obs{background:var(--mint)}dl.steps dt.k-why{background:var(--accent)}dl.steps dt.k-pred{background:var(--ink)}
+dl.steps dt.k-obs{background:var(--mint)}dl.steps dt.k-why{background:var(--accent)}dl.steps dt.k-pred{background:var(--ink)}dl.steps dt.k-then{background:var(--sun);color:var(--ink)}
+svg text.halo{paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}
 dl.steps dd{margin:0}
 .reveal-q{display:none}.predict .reveal-q{display:contents}.reveal-a{display:contents}.predict .reveal-a:not(.shown){display:none}
 
 /* caveat + grounding + checks */
-.callout{background:var(--sheet);border:1px solid var(--line);border-radius:18px;padding:22px 24px;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start}
-.callout .ico{width:40px;height:40px;border-radius:12px;background:var(--sun);display:grid;place-items:center;font:700 22px/1 var(--serif);color:var(--ink)}
+.cavs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:16px}
+.callout{background:var(--sheet);border:1px solid var(--line);border-radius:18px;padding:20px 22px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:start}
+.callout .ico{width:40px;height:40px;border-radius:12px;background:var(--sun);display:grid;place-items:center;font:700 20px/1 var(--serif);color:var(--ink)}
+.callout.k-assumption .ico{background:#cfe3f1}.callout.k-limitation .ico{background:#f6d2c6}
+blockquote.q{margin:6px 0 2px;padding:6px 10px;border-left:3px solid var(--ocean);background:rgba(31,95,139,.06);border-radius:0 8px 8px 0;font:14.5px/1.5 var(--serif);color:var(--ink2)}
+blockquote.q::before{content:"Excerpt: ";font:600 11px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ocean)}
+.eq-live{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line2);font:13.5px/1.5 var(--mono);color:var(--ink2);text-align:center}
+.eq-live b{font-family:var(--sans);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);margin-right:8px}
+.sharebar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:13px;color:var(--muted)}
 .callout .k{font:700 11.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}.callout p{margin:8px 0 0;font-size:16.5px}
 .ground{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}@media (max-width:860px){.ground{grid-template-columns:minmax(0,1fr)}}
 .gcol{border-radius:16px;padding:18px 20px;background:var(--sheet);border:1px solid var(--line)}
@@ -226,7 +234,7 @@ body.dark{--paper:#151311;--sheet:#1d1a17;--ink:#f1ece2;--ink2:#d6cfc2;--muted:#
 <section class="blk" id="playground"><div class="sec-head"><span class="sec-n">02</span><h2>Playground</h2><p class="sec-sub">Change anything on the left: every number and picture is recomputed live.</p></div>
 <p class="caption">{{CAPTION}}</p>
 <div class="pg">
-<div class="rail"><div id="p2p-controls" class="controls" aria-label="Controls"></div><div class="btns"><button type="button" class="btn ghost" id="p2p-reset">Reset to defaults</button></div></div>
+<div class="rail"><div id="p2p-controls" class="controls" aria-label="Controls"></div><div class="btns"><button type="button" class="btn ghost" id="p2p-reset">Reset to defaults</button><button type="button" class="btn ghost" id="p2p-share">Copy link to this state</button></div></div>
 <div class="stage">
 <div id="p2p-status" class="status" role="status" hidden></div>
 <div id="p2p-error" class="errbox" role="alert" hidden></div>
@@ -238,7 +246,7 @@ body.dark{--paper:#151311;--sheet:#1d1a17;--ink:#f1ece2;--ink2:#d6cfc2;--muted:#
 </div></div>
 </section>
 <section class="blk" id="explore"><div class="sec-head"><span class="sec-n">03</span><h2>Guided explorations</h2><p class="sec-sub">Load a starting state, make one change, and watch what happens.</p></div><div class="xgrid">{{EXPLORATIONS}}</div></section>
-<section class="blk" id="caveat"><div class="sec-head"><span class="sec-n">04</span><h2>{{MISC_KIND}}</h2></div><div class="callout"><div class="ico" aria-hidden="true">!</div><div>{{MISC}}</div></div></section>
+<section class="blk" id="caveat"><div class="sec-head"><span class="sec-n">04</span><h2>{{MISC_KIND}}</h2><p class="sec-sub">What the idea quietly assumes, where it stops working, and the trap most learners fall into.</p></div><div class="cavs">{{CAVEATS}}</div></section>
 <section class="blk" id="source"><div class="sec-head"><span class="sec-n">05</span><h2>Source grounding</h2><p class="sec-sub">What comes from the paper, and what is ours.</p></div>{{GROUNDING}}</section>
 <section class="blk" id="checks"><div class="sec-head"><span class="sec-n">06</span><h2>Built-in correctness checks</h2><p class="sec-sub">These call the same <code>compute()</code> that drives the playground. {{CHECK_NOTE}}</p></div><p id="p2p-tests-summary" class="tests-summary">Running&hellip;</p><ul id="p2p-tests" class="tests"></ul></section>
 </main>

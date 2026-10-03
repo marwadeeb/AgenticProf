@@ -1,260 +1,207 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="generator" content="Paper-to-Playground">
-<title>{{TITLE_TEXT}}</title>
-<style>
-:root{color-scheme:light;
---paper:#f7f3ea;--sheet:#fffdf8;--ink:#1c1917;--ink2:#44403c;--muted:#78716c;--line:#e7dfd0;--line2:#d6cab4;
---accent:#e4572e;--accent-ink:#b8401d;--ocean:#1f5f8b;--mint:#2a9d8f;--sun:#ffd166;--sun-soft:#fff3cf;
---ok:#2a7d4f;--okbg:#e8f4ec;--bad:#b42318;--badbg:#fdecea;
---serif:"Iowan Old Style","Palatino Linotype","Book Antiqua",Palatino,"Georgia",serif;
---sans:"Inter","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
---mono:ui-monospace,"SFMono-Regular","Cascadia Mono",Menlo,Consolas,"Liberation Mono",monospace;
---math:"Cambria Math","STIX Two Math","Latin Modern Math","Libertinus Math",math,serif}
-*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:64px}
-body{margin:0;background:var(--paper);color:var(--ink);font:16.5px/1.65 var(--sans);-webkit-font-smoothing:antialiased}
-a{color:var(--ocean);text-underline-offset:3px}
-.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
-math{font-family:var(--math)}math[display=block]{font-size:1.32em;margin:.2em 0;max-width:100%;overflow-x:auto;overflow-y:hidden}
-.im{display:inline-block;max-width:100%;overflow-x:auto;overflow-y:hidden;vertical-align:middle;line-height:1.2}
-.eq-line{max-width:100%;overflow-x:auto;overflow-y:hidden}
-p,dd,li,td,.why,.caption,.insight{overflow-wrap:anywhere}
-code{font-family:var(--mono);font-size:.9em;background:#efe8da;border-radius:4px;padding:1px 5px}code.tex{background:none;color:var(--ink2)}
-sub,sup{font-size:.72em;line-height:0}
+"""Deterministic, zero-token checks: static code/page checks and executable checks of the generated
+JavaScript (run in QuickJS in a subprocess with a timeout)."""
+from __future__ import annotations
 
-/* progress + top bar */
-#p2p-progress{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--accent),var(--sun));z-index:40;transition:width .12s linear}
-.topbar{position:sticky;top:0;z-index:30;background:rgba(247,243,234,.88);backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--line)}
-.topbar .wrap{display:flex;align-items:center;gap:18px;height:56px}
-.brand{font:700 13px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);white-space:nowrap}
-.brand b{color:var(--accent)}
-.toc{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}.toc::-webkit-scrollbar{display:none}
-.toc a{color:var(--ink2);text-decoration:none;font-size:13.5px;padding:6px 10px;border-radius:8px;white-space:nowrap}
-.toc a:hover{background:#efe8da}.toc a.on{color:var(--ink);background:#fff;box-shadow:inset 0 0 0 1px var(--line)}
-details.display{position:relative;flex:none}
-details.display summary{list-style:none;cursor:pointer;font-size:13.5px;color:var(--ink2);padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--sheet)}
-details.display summary::-webkit-details-marker{display:none}
-.settings{position:absolute;right:0;top:40px;width:260px;background:var(--sheet);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px;box-shadow:0 18px 40px -20px rgba(28,25,23,.35);font-size:14px}
-.settings label{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer}
-.settings select{width:auto;margin:0;padding:4px 6px}
+import importlib.util
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import time
+import xml.etree.ElementTree as ET
+from pathlib import Path
 
-/* hero */
-.hero{padding:56px 0 30px}
-.eyebrow{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13.5px;color:var(--muted)}
-.eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--line2)}
-.hero h1{font:600 clamp(32px,5vw,58px)/1.06 var(--serif);letter-spacing:-.02em;margin:14px 0 18px;max-width:18ch}
-.hero h1 .hl{background:linear-gradient(transparent 62%,var(--sun) 62%)}
-.cite{font-size:15px;color:var(--ink2)}.cite .pt{font-style:italic}.cite a{word-break:break-all}
-.aud{margin-top:6px;font-size:14px;color:var(--muted)}
-.path{margin-top:26px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13.5px}
-.path .lbl{color:var(--muted);margin-right:4px}
-.path .step{display:inline-flex;align-items:center;gap:7px;padding:6px 11px 6px 8px;border-radius:999px;background:var(--sheet);border:1px solid var(--line);color:var(--ink2);transition:all .3s}
-.path .step i{width:16px;height:16px;border-radius:50%;border:2px solid var(--line2);display:inline-grid;place-items:center;font:700 10px/1 var(--sans);font-style:normal;color:#fff;transition:all .3s}
-.path .step.done{border-color:#bfe3d0;background:var(--okbg);color:var(--ok)}.path .step.done i{background:var(--ok);border-color:var(--ok)}
-.path .step.done i::after{content:"\2713"}
-.cheer{margin-left:6px;color:var(--ok);font-weight:600;opacity:0;transform:translateY(4px);transition:all .4s}.cheer.show{opacity:1;transform:none}
+from . import jsbundle
 
-/* sections */
-main{padding-bottom:30px}
-section.blk{padding:46px 0;border-top:1px solid var(--line)}
-.sec-head{display:grid;grid-template-columns:72px 1fr;gap:6px 16px;align-items:baseline;margin-bottom:20px}
-.sec-n{font:500 44px/1 var(--serif);color:transparent;-webkit-text-stroke:1.2px var(--accent);letter-spacing:-.02em}
-h2{font:600 clamp(24px,2.6vw,32px)/1.15 var(--serif);margin:0;letter-spacing:-.01em}
-.sec-sub{grid-column:2;color:var(--muted);font-size:15px;margin:0}
-@media (max-width:640px){.sec-head{grid-template-columns:1fr}.sec-sub{grid-column:1}.sec-n{font-size:34px}}
-h3{font:600 18px/1.3 var(--serif);margin:22px 0 8px}
+JSCHECK = Path(__file__).resolve().parent / "jscheck.py"
 
-/* idea */
-.idea-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:34px;align-items:start}
-@media (max-width:900px){.idea-grid{grid-template-columns:minmax(0,1fr)}}
-.lede{font:400 20px/1.55 var(--serif);margin:0 0 16px;color:var(--ink)}
-.why{border-left:3px solid var(--sun);padding:4px 0 4px 16px;margin:16px 0;color:var(--ink2)}.why b{color:var(--ink)}
-.eq{background:var(--sheet);border:1px solid var(--line);border-radius:16px;padding:14px 22px 16px;overflow-x:auto;box-shadow:0 20px 40px -32px rgba(28,25,23,.35)}
-.eq::before{content:"The equation";display:block;font:600 11.5px/20px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-ink)}
-.eq-line{padding:6px 0;text-align:center;font-size:clamp(17px,1.9vw,22px)}
-.eq-src{font-size:13px;color:var(--muted);text-align:center;margin-top:6px}
-table.sym{border-collapse:collapse;width:100%;font-size:15px;margin-top:6px;display:block;overflow-x:auto}
-table.sym tbody{display:table;width:100%}
-table.sym td{border-top:1px solid var(--line);padding:9px 8px;vertical-align:top}
-table.sym td.s{width:1%;white-space:nowrap;font:18px var(--math);color:var(--ocean);padding-right:16px}
+_FORBIDDEN = [
+    (re.compile(r"\bfetch\s*\("), "CODE calls fetch(); the page must work offline."),
+    (re.compile(r"\bXMLHttpRequest\b|\bWebSocket\b"), "CODE opens a network connection; the page must work offline."),
+    (re.compile(r"^\s*(import|export)\s", re.M), "CODE uses import/export; write plain top-level functions."),
+    (re.compile(r"\brequire\s*\("), "CODE calls require(); no modules are available."),
+    (re.compile(r"\bdocument\s*\.|\bwindow\s*\."), "CODE touches document/window; compute/view must be pure and return values or SVG strings."),
+    (re.compile(r"\b(localStorage|sessionStorage|indexedDB)\b"), "CODE uses browser storage."),
+    (re.compile(r"(?:src|href)\s*=\s*[\"']?\s*(?:https?:)?//", re.I), "CODE references a remote resource (src/href to a URL)."),
+]
+_FRAME = re.compile(r"at ([^\s()]+) \(([^()]*?):(\d+)(?::\d+)?\)")
+_BARE = re.compile(r"\bat (<[^>\s]+>|[\w.\-]+):(\d+)(?::\d+)?")
 
-/* playground */
-#playground{background:var(--sheet);border:1px solid var(--line);border-radius:22px;padding:34px 30px 30px;margin:10px 0;box-shadow:0 30px 60px -45px rgba(28,25,23,.45)}
-#playground .sec-head{margin-bottom:12px}
-.caption{color:var(--ink2);margin:0 0 20px;max-width:75ch}
-.pg{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start}
-@media (max-width:940px){.pg{grid-template-columns:minmax(0,1fr)}}
-@media (max-width:640px){#playground{padding:24px 14px;border-radius:16px}.wrap{padding:0 14px}.brand{display:none}}
-.rail{position:sticky;top:72px}
-@media (max-width:940px){.rail{position:static}}
-.controls{display:flex;flex-direction:column;gap:12px}
-.ctrl{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px;transition:border-color .2s,box-shadow .2s}
-.ctrl:hover{border-color:var(--line2)}.ctrl:focus-within{border-color:var(--ocean);box-shadow:0 0 0 3px rgba(31,95,139,.12)}
-.ctrl.nudge{animation:nudge 2.4s ease-in-out infinite}
-@keyframes nudge{0%,100%{box-shadow:0 0 0 0 rgba(228,87,46,0)}50%{box-shadow:0 0 0 6px rgba(228,87,46,.18)}}
-.ctrl-head{display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600;font-size:14.5px}
-.ctrl-head label{cursor:pointer}
-.ctrl-help{font-size:12.8px;color:var(--muted);margin-top:6px;line-height:1.45}
-input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;margin:6px 0 0;background:transparent;cursor:pointer}
-input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--accent) var(--fill,50%),#e5dccb var(--fill,50%))}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-7px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 6px rgba(0,0,0,.18);transition:transform .15s}
-input[type=range]:active::-webkit-slider-thumb{transform:scale(1.18)}
-input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:#e5dccb}input[type=range]::-moz-range-progress{height:6px;border-radius:999px;background:var(--accent)}
-input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--accent)}
-.ends{display:flex;justify-content:space-between;font:11.5px var(--mono);color:var(--muted)}
-input.num,select{font:14px var(--mono);border:1px solid var(--line2);border-radius:8px;padding:5px 8px;background:#fff;color:var(--ink)}
-input.num{width:92px;text-align:right}input.num.wide{width:100%;margin-top:8px}select{width:100%;margin-top:8px;font-family:var(--sans)}
-input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid rgba(31,95,139,.45);outline-offset:2px}
-.switch{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;position:relative}.switch input{position:absolute;opacity:0;width:1px;height:1px}
-.switch .knob{position:relative;flex:none;width:42px;height:24px;border-radius:999px;background:#d9cfbd;transition:background .2s}
-.switch .knob::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s cubic-bezier(.3,1.4,.5,1)}
-.switch input:checked+.knob{background:var(--accent)}.switch input:checked+.knob::after{transform:translateX(18px)}.switch input:focus-visible+.knob{outline:3px solid rgba(31,95,139,.45)}
-.state{font:12px var(--mono);color:var(--muted)}.gridwrap{overflow-x:auto;margin-top:8px}
-table.gridin{border-collapse:separate;border-spacing:4px}table.gridin th{font-size:12px;color:var(--muted);font-weight:600;padding:0 2px;text-align:center}
-table.gridin input{width:60px;font:13px var(--mono);text-align:right;border:1px solid var(--line2);border-radius:7px;padding:5px 6px;background:#fff;color:var(--ink);transition:background .3s}
-table.gridin input:focus{background:var(--sun-soft)}
-.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-button.btn{font:600 14px/1 var(--sans);border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:999px;padding:11px 18px;cursor:pointer;transition:transform .15s,background .2s}
-button.btn:hover{background:var(--accent);border-color:var(--accent);transform:translateY(-1px)}
-button.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line2)}button.btn.ghost:hover{background:#efe8da;color:var(--ink)}
-button.btn.small{padding:6px 12px;font-size:12.5px}
-.stage{min-width:0}
-.status{font-size:14.5px;background:var(--sun-soft);border:1px solid #f3dc9b;color:#5c4400;border-radius:12px;padding:10px 14px;margin-bottom:12px}
-.errbox{font-size:14px;background:var(--badbg);border:1px solid #f4c7c2;color:var(--bad);border-radius:12px;padding:10px 14px;margin-bottom:12px}
-.visual{margin:0;border-radius:16px;background:#fff;border:1px solid var(--line);padding:14px;min-height:140px}
-.visual svg{display:block;width:100%;height:auto}
-.insight{margin:14px 0 0;padding:14px 16px 14px 46px;border-radius:14px;background:var(--ink);color:#f5f1e8;font-size:15.5px;position:relative;animation:rise .35s ease-out}
-.insight::before{content:"\2192";position:absolute;left:16px;top:12px;font:700 20px/1 var(--sans);color:var(--sun)}
-@keyframes rise{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
-.live-checks{margin:12px 0 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13.5px}.live-label{color:var(--muted);margin-right:2px}
-.chip{border-radius:999px;padding:4px 11px;font-weight:600;border:1px solid}.chip.ok{color:var(--ok);background:var(--okbg);border-color:#bfe3d0}.chip.bad{color:var(--bad);background:var(--badbg);border-color:#f4c7c2}
-.ro-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:24px 0 10px}
-.ro-head h3{margin:0}.ro-head .small{color:var(--muted)}
-ol.chain{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(178px,100%),1fr));gap:10px;counter-reset:s}
-.kv-item{border:1px solid var(--line);border-radius:14px;padding:11px 13px;background:#fff;position:relative;transition:border-color .3s}
-.kv-label{font-size:12.8px;color:var(--muted);line-height:1.35}
-.kv-value{font:600 19px/1.3 var(--mono);margin-top:4px;word-break:break-word;color:var(--ink)}
-.kv-formula{font:12.5px var(--mono);color:var(--ink2);margin-top:5px;word-break:break-word}
-.kv-note{font-size:12px;color:var(--muted);margin-top:4px}
-.kv-item.changed{border-color:#f0c95a;animation:chg 1.2s ease-out}@keyframes chg{0%{background:var(--sun)}100%{background:#fff}}
-.stepn{display:inline-grid;place-items:center;min-width:19px;height:19px;border-radius:50%;background:var(--ink);color:#fff;font:700 10.5px/1 var(--mono);margin-right:7px;vertical-align:1px}
-.delta{font-size:11px;margin-left:6px}.delta.up{color:var(--ok)}.delta.down{color:var(--bad)}
-.tblw{margin-top:14px;overflow-x:auto}.tblt{font-weight:600;font-size:14px;margin:4px 0 6px}
-table.tbl{border-collapse:collapse;font-size:14px;background:#fff;border-radius:10px;overflow:hidden}
-table.tbl th,table.tbl td{border:1px solid var(--line);padding:6px 11px;text-align:right}table.tbl th{background:var(--paper);font-weight:600;color:var(--ink2)}table.tbl td{font-family:var(--mono)}
-table.tbl td:first-child,table.tbl th:first-child{text-align:left}
 
-/* explorations */
-.xgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}@media (max-width:860px){.xgrid{grid-template-columns:minmax(0,1fr)}}
-.explore{background:var(--sheet);border:1px solid var(--line);border-radius:18px;padding:22px 22px 20px;display:flex;flex-direction:column;position:relative;transition:transform .2s,box-shadow .2s,border-color .2s}
-.explore:hover{transform:translateY(-2px);box-shadow:0 22px 40px -30px rgba(28,25,23,.45)}
-.explore.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(228,87,46,.15)}
-.explore.done .tag::after{content:" \2713 done";color:var(--ok)}
-.tag{font:700 11.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
-.explore h3{margin:10px 0 12px;font-size:21px}
-dl.steps{margin:0 0 16px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 14px;flex:1}
-dl.steps dt{font:700 11px/22px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--ocean);border-radius:6px;padding:0 8px;height:22px;align-self:start;text-align:center}
-dl.steps dt.k-obs{background:var(--mint)}dl.steps dt.k-why{background:var(--accent)}dl.steps dt.k-pred{background:var(--ink)}dl.steps dt.k-then{background:var(--sun);color:var(--ink)}
-svg text.halo{paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}
-dl.steps dd{margin:0}
-.reveal-q{display:none}.predict .reveal-q{display:contents}.reveal-a{display:contents}.predict .reveal-a:not(.shown){display:none}
+def engine_available() -> bool:
+    try:
+        return importlib.util.find_spec("quickjs") is not None
+    except (ImportError, ValueError):
+        return False
 
-/* caveat + grounding + checks */
-.cavs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:16px}
-.callout{background:var(--sheet);border:1px solid var(--line);border-radius:18px;padding:20px 22px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:start}
-.callout .ico{width:40px;height:40px;border-radius:12px;background:var(--sun);display:grid;place-items:center;font:700 20px/1 var(--serif);color:var(--ink)}
-.callout.k-assumption .ico{background:#cfe3f1}.callout.k-limitation .ico{background:#f6d2c6}
-blockquote.q{margin:6px 0 2px;padding:6px 10px;border-left:3px solid var(--ocean);background:rgba(31,95,139,.06);border-radius:0 8px 8px 0;font:14.5px/1.5 var(--serif);color:var(--ink2)}
-blockquote.q::before{content:"Excerpt: ";font:600 11px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ocean)}
-.eq-live{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line2);font:13.5px/1.5 var(--mono);color:var(--ink2);text-align:center}
-.eq-live b{font-family:var(--sans);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);margin-right:8px}
-.sharebar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:13px;color:var(--muted)}
-.callout .k{font:700 11.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}.callout p{margin:8px 0 0;font-size:16.5px}
-.ground{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}@media (max-width:860px){.ground{grid-template-columns:minmax(0,1fr)}}
-.gcol{border-radius:16px;padding:18px 20px;background:var(--sheet);border:1px solid var(--line)}
-.gcol h3{margin:0 0 10px;font-size:16px;display:flex;align-items:center;gap:8px}
-.gcol h3::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--ocean)}.gcol.ours h3::before{background:var(--accent)}
-.gcol ul{margin:0;padding-left:18px}.gcol li{margin:6px 0}
-.disclaimer{margin-top:16px;font-size:14px;color:var(--ink2);border-left:3px solid var(--line2);padding:2px 0 2px 14px}
-details.excerpt{margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:12px 16px;background:var(--sheet)}
-details.excerpt summary{cursor:pointer;font-weight:600}details.excerpt p{font:15.5px/1.6 var(--serif);color:var(--ink2)}
-.tests-summary{font-size:15.5px;margin:0 0 12px}.tests-summary.ok b{color:var(--ok)}.tests-summary.bad b{color:var(--bad)}
-ul.tests{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:8px}
-ul.tests li{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;border:1px solid var(--line);background:var(--sheet);border-radius:12px;padding:9px 12px;font-size:14.5px}
-ul.tests .badge{font:700 10.5px/1 var(--mono);padding:4px 7px;border-radius:6px;color:#fff;background:var(--ok)}ul.tests li.fail .badge{background:var(--bad)}
-ul.tests code{font-size:11.5px;color:var(--muted);background:none;padding:0}ul.tests .terr{color:var(--bad);font-size:13px}
-.muted{color:var(--muted)}.small{font-size:12.5px;font-weight:400}
-footer{color:var(--muted);font-size:13px;padding:10px 0 50px;text-align:center}
-.flash{animation:flash 1.3s ease-out}@keyframes flash{0%{box-shadow:0 0 0 0 rgba(228,87,46,.5)}100%{box-shadow:0 0 0 22px rgba(228,87,46,0)}}
-.hide-details .details,.hide-details .ctrl-help{display:none}
-.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}.reveal.in{opacity:1;transform:none}
-@media print{.topbar,.btns,button,#p2p-progress,.path{display:none}.reveal{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
 
-/* dark */
-body.dark{--paper:#151311;--sheet:#1d1a17;--ink:#f1ece2;--ink2:#d6cfc2;--muted:#a39a8c;--line:#2f2a24;--line2:#463f36;--sun-soft:#3a2f12;--okbg:#10291c;--badbg:#3a1512;color-scheme:dark}
-.dark .topbar{background:rgba(21,19,17,.88)}.dark .toc a.on{background:var(--sheet)}.dark .toc a:hover,.dark button.btn.ghost:hover{background:#2a251f}
-.dark input.num,.dark select,.dark table.gridin input,.dark .kv-item,.dark table.tbl,.dark .visual{background:#221e1a;color:var(--ink);border-color:var(--line2)}
-.dark .visual svg{filter:invert(.9) hue-rotate(180deg) saturate(1.2)}.dark code{background:#2a251f}
-.dark button.btn{background:var(--ink);color:var(--paper)}.dark .insight{background:#2a251f}
-.dark .status{color:#f7e3a6;border-color:#6b5617}.dark .kv-item.changed{animation:none;border-color:#c9a23a}
-</style>
-</head>
-<body>
-<div id="p2p-progress" aria-hidden="true"></div>
-<div class="topbar"><div class="wrap">
-<div class="brand">Paper <b>&rarr;</b> Playground</div>
-<nav class="toc" aria-label="Sections"><a href="#idea">The idea</a><a href="#playground">Playground</a><a href="#explore">Explore</a><a href="#caveat">{{MISC_KIND}}</a><a href="#source">Source</a><a href="#checks">Checks</a></nav>
-<details class="display"><summary>Display</summary>
-<div class="settings" id="p2p-settings" role="group" aria-label="Display settings (no effect on the computations)">
-<label for="set-theme">Theme <select id="set-theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
-<label for="set-palette">Colours <select id="set-palette"><option value="standard">Standard</option><option value="colorblind">Colour-blind safe</option><option value="contrast">High contrast</option><option value="grayscale">Greyscale</option></select></label>
-<label for="set-size">Text size <select id="set-size"><option value="0.9">90%</option><option value="1" selected>100%</option><option value="1.12">112%</option><option value="1.25">125%</option></select></label>
-<label>Formulas and notes <input type="checkbox" id="set-details" checked></label>
-<label>Quiz me (hide answers) <input type="checkbox" id="set-predict"></label>
-</div></details>
-</div></div>
-<header class="hero"><div class="wrap">
-<div class="eyebrow"><span>Interactive explainer</span><span class="dot"></span><span>{{SECTION_SHORT}}</span></div>
-<h1>{{TITLE}}</h1>
-<div class="cite">{{CITATION}}</div>
-{{AUDIENCE}}
-<div class="path" id="p2p-path" aria-label="Your path through this page"><span class="lbl">Your path</span>
-<span class="step" id="path-play"><i></i>Move a control</span>
-<span class="step" id="path-x1"><i></i>Exploration 1</span>
-<span class="step" id="path-x2"><i></i>Exploration 2</span>
-<span class="step" id="path-caveat"><i></i>The catch</span>
-<span class="cheer" id="p2p-cheer" aria-live="polite"></span></div>
-</div></header>
-<main class="wrap">
-<section class="blk" id="idea"><div class="sec-head"><span class="sec-n">01</span><h2>The idea</h2></div>{{IDEA}}</section>
-<section class="blk" id="playground"><div class="sec-head"><span class="sec-n">02</span><h2>Playground</h2><p class="sec-sub">Change anything on the left: every number and picture is recomputed live.</p></div>
-<p class="caption">{{CAPTION}}</p>
-<div class="pg">
-<div class="rail"><div id="p2p-controls" class="controls" aria-label="Controls"></div><div class="btns"><button type="button" class="btn ghost" id="p2p-reset">Reset to defaults</button><button type="button" class="btn ghost" id="p2p-share">Copy link to this state</button></div></div>
-<div class="stage">
-<div id="p2p-status" class="status" role="status" hidden></div>
-<div id="p2p-error" class="errbox" role="alert" hidden></div>
-<figure class="visual" id="p2p-visual" aria-label="{{CAPTION_ATTR}}"></figure>
-<p id="p2p-insight" class="insight" aria-live="polite" hidden></p>
-<div id="p2p-live-checks" class="live-checks" aria-live="polite" hidden></div>
-<div class="ro-head"><h3>Step by step</h3><span class="small">highlighted = changed by your last edit</span></div>
-<div id="p2p-readout" aria-live="polite"></div>
-</div></div>
-</section>
-<section class="blk" id="explore"><div class="sec-head"><span class="sec-n">03</span><h2>Guided explorations</h2><p class="sec-sub">Load a starting state, make one change, and watch what happens.</p></div><div class="xgrid">{{EXPLORATIONS}}</div></section>
-<section class="blk" id="caveat"><div class="sec-head"><span class="sec-n">04</span><h2>{{MISC_KIND}}</h2><p class="sec-sub">What the idea quietly assumes, where it stops working, and the trap most learners fall into.</p></div><div class="cavs">{{CAVEATS}}</div></section>
-<section class="blk" id="source"><div class="sec-head"><span class="sec-n">05</span><h2>Source grounding</h2><p class="sec-sub">What comes from the paper, and what is ours.</p></div>{{GROUNDING}}</section>
-<section class="blk" id="checks"><div class="sec-head"><span class="sec-n">06</span><h2>Built-in correctness checks</h2><p class="sec-sub">These call the same <code>compute()</code> that drives the playground. {{CHECK_NOTE}}</p></div><p id="p2p-tests-summary" class="tests-summary">Running&hellip;</p><ul id="p2p-tests" class="tests"></ul></section>
-</main>
-<footer>{{FOOTER}}</footer>
-<noscript><div class="wrap"><p class="errbox">The playground needs JavaScript. The explanation above is still readable.</p></div></noscript>
-<script>{{LIB}}</script>
-<script>window.__P2P_SPEC__ = {{SPEC_JSON}};</script>
-<script>{{MODEL_CODE}}</script>
-<script>{{RUNTIME}}</script>
-</body>
-</html>
+def explain_js_error(msg: str, code: str) -> str:
+    """Map QuickJS stack frames to CODE line numbers and quote the first offending line."""
+    lines = (code or "").split("\n")
+    first = []
+
+    def model_line(n: int) -> int:
+        cl = n - jsbundle.CODE_LINE_OFFSET
+        if 1 <= cl <= len(lines) and not first:
+            first.append(cl)
+        return cl
+
+    def frame(m):
+        fn = m.group(1)
+        if fn.startswith("v_"):
+            return "inside helper V." + fn[2:] + "()"
+        if fn.startswith("p2p_") or fn.startswith("__h") or fn == "<eval>":
+            return ""
+        return "at " + fn + " (CODE line " + str(model_line(int(m.group(3)))) + ")"
+
+    out = _FRAME.sub(frame, msg or "")
+    out = _BARE.sub(lambda m: "at CODE line " + str(model_line(int(m.group(2)))), out)
+    out = re.sub(r"\s+", " ", out).strip()
+    if first:
+        out += " | CODE line " + str(first[0]) + ": " + lines[first[0] - 1].strip()[:160]
+    return out[:800]
+
+
+def static_code_checks(code: str):
+    fails, warns = [], []
+    if not (code or "").strip():
+        return ["CODE is empty: define compute, view, readout, insight and TESTS."], warns
+    for rx, msg in _FORBIDDEN:
+        if rx.search(code):
+            fails.append(msg)
+    if re.search(r"\bMath\.random\s*\(", code):
+        warns.append("CODE uses Math.random(); results should be deterministic.")
+    if len(code) > 60000:
+        warns.append("CODE is very long; keep it compact.")
+    return fails, warns
+
+
+def _empty_result():
+    return {"engine": None, "failures": [], "warnings": [], "fatal": False, "tests": [], "active": [],
+            "inert": [], "visual_active": None, "cases": 0, "duration_s": 0.0}
+
+
+def run_js_checks(spec: dict, code: str, timeout: float = 60.0) -> dict:
+    res = _empty_result()
+    payload = {
+        "lib": jsbundle.asset("vlib.js"),
+        "harness": jsbundle.asset("harness.js"),
+        "wrapped": jsbundle.wrap_model(code),
+        "time_limit": max(2, int(timeout) - 5),
+        "cfg": {"controls": spec.get("controls", []),
+                "presets": [e.get("preset", {}) for e in spec.get("explorations", [])]},
+    }
+    t = time.monotonic()
+    fd, path = tempfile.mkstemp(prefix="p2p_", suffix=".json")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        try:
+            proc = subprocess.run([sys.executable, str(JSCHECK), path], capture_output=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            res.update(engine="quickjs", fatal=True, duration_s=round(time.monotonic() - t, 2))
+            res["failures"].append("Executing CODE exceeded %.0f s (likely an unbounded loop); keep loops bounded and small." % timeout)
+            return res
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    res["duration_s"] = round(time.monotonic() - t, 2)
+    out = proc.stdout.decode("utf-8", "replace").strip()
+    rep = None
+    if out:
+        try:
+            rep = json.loads(out)
+        except json.JSONDecodeError:
+            try:
+                rep = json.loads(out.splitlines()[-1])
+            except (json.JSONDecodeError, IndexError):
+                rep = None
+    if not isinstance(rep, dict):
+        res.update(engine="quickjs", fatal=True)
+        err = proc.stderr.decode("utf-8", "replace").strip()[-300:]
+        res["failures"].append(("The JavaScript checker crashed (exit code %s); possible runaway recursion or memory use. %s"
+                                % (proc.returncode, err)).strip())
+        return res
+    return _interpret(rep, code, res)
+
+
+def _interpret(rep: dict, code: str, res: dict) -> dict:
+    res["engine"] = rep.get("engine")
+    if not res["engine"]:
+        res["warnings"].append("Executable JS checks skipped (" + str(rep.get("error", "engine unavailable"))
+                               + "); static checks only. The page still re-runs TESTS in the browser.")
+        return res
+    if rep.get("load_error"):
+        res["failures"].append("CODE fails to load: " + explain_js_error(rep["load_error"], code))
+        res["fatal"] = True
+        return res
+    if rep.get("run_error"):
+        res["failures"].append("Running CODE failed: " + explain_js_error(rep["run_error"], code))
+        res["fatal"] = True
+        return res
+    res["failures"] += [explain_js_error(e, code) for e in rep.get("errors", [])]
+    res["warnings"] += [explain_js_error(w, code) for w in rep.get("warnings", [])]
+    if rep.get("suppressed"):
+        res["warnings"].append("%d further similar issues suppressed." % rep["suppressed"])
+    res["fatal"] = bool(rep.get("fatal"))
+    res["cases"] = rep.get("cases", 0)
+    for t in rep.get("tests", []):
+        item = {"name": str(t.get("name")), "pass": bool(t.get("pass"))}
+        if t.get("error"):
+            item["error"] = explain_js_error(t["error"], code)
+        res["tests"].append(item)
+        if not item["pass"]:
+            res["failures"].append('TEST "' + item["name"] + '" failed'
+                                   + (": " + item["error"] if item.get("error") else " (check returned false; "
+                                      + str(t.get("detail") or "no values") + ")."))
+    if not res["tests"]:
+        res["failures"].append("No TESTS were defined; add 3-6 executable checks (const TESTS = [...]).")
+    elif len(res["tests"]) < 3:
+        res["warnings"].append("Only %d TESTS defined; 3-6 are expected." % len(res["tests"]))
+    res["invariants"] = rep.get("invariants", 0)
+    if not res["invariants"]:
+        res["warnings"].append("No INVARIANTS defined; add 1-3 properties that hold for every input (shown live on the page).")
+    res["active"], res["inert"] = rep.get("active", []), rep.get("inert", [])
+    res["visual_active"] = bool(rep.get("visualActive"))
+    if not res["fatal"]:
+        if len(res["active"]) < 2:
+            res["failures"].append("Only %d control(s) change the visual or readouts (active: %s; no effect: %s). At least two controls must visibly change the output."
+                                   % (len(res["active"]), ", ".join(res["active"]) or "none", ", ".join(res["inert"]) or "none"))
+        elif res["inert"]:
+            res["warnings"].append("Controls with no visible effect: " + ", ".join(res["inert"]) + ".")
+        if not res["visual_active"]:
+            res["failures"].append("The SVG visual never changes when a control changes; make view() depend on the inputs and computed result.")
+    svg = rep.get("svgDefault") or ""
+    if svg:
+        try:
+            ET.fromstring(svg)
+        except ET.ParseError as exc:
+            res["warnings"].append("Default SVG is not well-formed XML (" + str(exc) + ").")
+        if len(svg) > 300000:
+            res["warnings"].append("Default SVG is very large; simplify the drawing.")
+    return res
+
+
+def static_html_checks(html: str):
+    fails, warns = [], []
+    patterns = [
+        (r"<(?:script|link|img|iframe|source|video|audio|embed|object)\b[^>]*\b(?:src|href|data)\s*=\s*[\"']?\s*(?:https?:)?//",
+         "page loads a remote resource"),
+        (r"url\(\s*[\"']?\s*(?:https?:)?//", "CSS references a remote url()"),
+        (r"@import\b", "CSS @import found"),
+        (r"sk-or-[A-Za-z0-9]", "possible API key in page"),
+    ]
+    for rx, msg in patterns:
+        if re.search(rx, html, re.I):
+            fails.append(msg)
+    for needed in ('id="p2p-controls"', 'id="p2p-visual"', 'id="p2p-readout"', 'data-explore="0"',
+                   'data-explore="1"', 'id="p2p-tests"', 'id="source"'):
+        if needed not in html:
+            fails.append("page is missing " + needed)
+    if "{{" in html and re.search(r"\{\{[A-Z_]+\}\}", html):
+        warns.append("unreplaced template placeholder")
+    return fails, warns

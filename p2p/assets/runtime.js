@@ -215,7 +215,7 @@
     var T = Array.isArray(M.tests) ? M.tests : [], base = P2P.defaults(C), pass = 0, h = '';
     T.forEach(function (t, i) {
       var ok = false, err = '', params = '';
-      try { var p = P2P.merge(C, base, (t && t.params) || {}); ok = !!t.check(M.compute(clone(p)), p); } catch (e) { err = e && e.message ? e.message : String(e); }
+      try { var p = P2P.merge(C, base, (t && t.params) || {}, true); ok = !!t.check(M.compute(clone(p)), p); } catch (e) { err = e && e.message ? e.message : String(e); }
       if (ok) pass++;
       if (t && t.params && Object.keys(t.params).length) { params = JSON.stringify(t.params); if (params.length > 90) params = params.slice(0, 87) + '...'; }
       h += '<li class="' + (ok ? 'pass' : 'fail') + '" id="test-' + (i + 1) + '"><span class="badge">' + (ok ? 'PASS' : 'FAIL') + '</span><span>' + rich((t && t.name) || ('Check ' + (i + 1))) + '</span>' +

@@ -57,8 +57,9 @@ CODE: ES2020, deterministic, pure (no DOM, window, document, fetch, import, Math
  function view(p, r) - returns an SVG string built with V (below), normally V.svg(760, 420, ...). Make the mechanism visible: inputs -> intermediate quantities -> output, with labelled panels, axes and units; emphasise what changes.
  function readout(p, r) - returns an array of {label, value, formula?, note?} in calculation order, inputs -> intermediates -> output, which the page shows as a numbered chain (value: number, or string made with V.fmt; formula: the numbers substituted, e.g. "e^1.20 / 4.31") and/or {table: {title, headers: [...], rows: [[...]]}} showing the key intermediate values and every check the brief asks for (e.g. a row sum).
  function insight(p, r) - returns one plain sentence interpreting the current state.
- const TESTS = [{name, params, check: (r, p) => boolean}] - 3 to 5 checks run against compute; params override defaults. Every expected value must be certain WITHOUT doing arithmetic yourself: (a) each check the brief names, with the brief's own numbers; (b) identities recomputed inside check from r and p (e.g. rebuild the output from the intermediate values in a separate loop, a sum of probabilities equals 1); (c) exact closed-form special cases (equal inputs, a single nonzero entry, zero, identity, symmetry). Never compare against a literal you worked out by multi-step arithmetic. Include one edge case at a range end. Compare floats with a tolerance such as 1e-9 * max(1, |expected|).
- const INVARIANTS = [{name, check: (r, p) => boolean}] - 1 to 3 properties that hold for EVERY valid input (e.g. "each row of weights sums to 1", "0 ≤ H ≤ log₂ n"); the page shows them live and the generator checks them on every state it tries.
+ view, readout and insight may use only p, r, V, helper functions and their own locals: every number they show must come from r or p (e.g. p.alpha, never a bare alpha).
+ const TESTS = [{name, params, check: (r, p) => boolean}] - 3 to 5 checks run against compute; params override defaults. Every expected value must be certain WITHOUT doing arithmetic yourself: (a) each check the brief names, with the brief's own numbers; (b) identities recomputed inside check from r and p (e.g. rebuild the output from the intermediate values in a separate loop, a sum of probabilities equals 1); (c) exact closed-form special cases (equal inputs, a single nonzero entry, zero, identity, symmetry). Never compare against a literal you worked out by multi-step arithmetic. A test may give a vector/matrix of any size (compute must use .length, not a fixed size). Include one edge case at a range end. Compare floats with a tolerance such as 1e-9 * max(1, |expected|).
+ const INVARIANTS = [{name, check: (r, p) => boolean}] - 1 to 3 exact properties (never convergence or "small error" claims, which fail at range ends such as few iterations) that hold for EVERY valid input (e.g. "each row of weights sums to 1", "0 ≤ H ≤ log₂ n"); the page shows them live and the generator checks them on every state it tries.
 
 """ + V_REFERENCE + """
 
@@ -83,7 +84,7 @@ Reply with exactly:
 ===SPEC_PATCH===
 {JSON object with only the top-level SPEC keys you changed, e.g. "controls" or "explorations" (full new value of each); {} if none}
 ===CODE===
-the complete corrected CODE, or the single word UNCHANGED
+ONLY the top-level declarations you change, each complete (function name(...) {...} or const NAME = ...;); they replace the declarations with the same name and everything else is kept. Do not repeat unchanged declarations. Or the single word UNCHANGED.
 ===END===
 
 CODE rules: ES2020, pure and deterministic (no DOM, fetch, import, Math.random); every displayed value finite for every valid input.
@@ -132,9 +133,10 @@ def generation_messages(case: dict) -> list:
             {"role": "user", "content": case_block(case) + "\n\n" + GEN_INSTRUCTION}]
 
 
-RETRY_REPAIR_NOTE = ("A previous repair attempt returned code that still fails exactly as below, so the bug is not where it "
-                     "was assumed. Recompute one failing case by hand from the source equation, compare it step by step "
-                     "with the computed values shown, and check every helper's array shapes, indices and loop bounds.")
+RETRY_REPAIR_NOTE = ("A previous repair did not fix the problems below, so the error is not where it was assumed. Derive the "
+                     "failing case from the source equation step by step (signs, ordering of pairs, indices, normalisation), "
+                     "compare with the computed values shown, then decide whether compute or the check is wrong. A check "
+                     "that expects an exact value a formula only approaches (e.g. softmax weight exactly 1) is wrong.")
 
 
 def repair_messages(case, spec, code, failures, warnings, include_excerpt, retry=False) -> list:

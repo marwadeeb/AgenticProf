@@ -32,15 +32,12 @@ HARD_LIMIT_S = 600.0
 SAFETY_S = float(os.getenv("P2P_SAFETY_SECONDS", "40"))
 GEN_MAX_TOKENS = int(os.getenv("P2P_GEN_MAX_TOKENS", "14000"))
 REPAIR_MAX_TOKENS = int(os.getenv("P2P_REPAIR_MAX_TOKENS", "9000"))
-MAX_REPAIRS = int(os.getenv("P2P_MAX_REPAIRS", "2"))
+MAX_REPAIRS = int(os.getenv("P2P_MAX_REPAIRS", "3"))
 MAX_REQUESTS = 10
 # Measured on DeepSeek V4.1 Flash: effort "low" thought for 3.6k+ tokens and sometimes never answered;
 # a reasoning token cap (soft: ~2-3k used) leaves room for the answer inside THINK_MAX_TOKENS.
 THINK_REASONING = {"max_tokens": int(os.getenv("P2P_THINK_TOKENS", "1500")), "exclude": True}
 THINK_MAX_TOKENS = 6000
-# "derive": the escalated repair writes a short visible derivation before its patch (bounded, ~300 tokens).
-# "reasoning": hidden reasoning instead (fixed more, but its cap is soft and it sometimes never answers).
-THINK_MODE = os.getenv("P2P_THINK_MODE", "derive")
 MAX_COMPLETION_TOKENS = 30000
 
 
@@ -83,28 +80,30 @@ class Pipeline:
             return self._fail("SPEC unusable: " + "; ".join(best.failures[:3]))
         if best.spec.get("plan"):
             self.trace.event("plan", "model_plan", "ok", plan=best.spec["plan"])
-        rounds, retry = 0, False
+        # Escalation ladder, each step only if the previous one left a maths failure (TEST / INVARIANT):
+        # level 0 plain repair -> level 1 repair with a short visible derivation -> level 2 repair with hidden
+        # reasoning (capped). Plain repairs reliably fix crashes, NaN and bad test setups; a wrong formula or
+        # a wrong expected value needs the model to actually derive the case.
+        rounds, level = 0, 0
         while best.failures and rounds < self.max_repairs:
             rounds += 1
-            cand = self._revise(best, rounds, retry)
+            cand = self._revise(best, rounds, level)
             if cand is None:
                 break
+            maths = lambda c: any(f.startswith(("TEST", "INVARIANT")) for f in c.failures)
             if cand.score < best.score:
                 self.trace.event("revise", "accept_revision", "accepted", round=rounds, score_before=best.score, score_after=cand.score)
                 best = cand
             else:
                 self.trace.event("revise", "accept_revision", "rejected", round=rounds, score_before=best.score,
                                  score_after=cand.score, reason="revision did not reduce check failures; kept previous candidate")
-                maths = any(f.startswith(("TEST", "INVARIANT")) for f in best.failures)
-                if retry or not maths:
-                    # An identical prompt gives an identical answer: only a maths failure earns a reasoning retry.
+                if level >= 2 or not maths(best):
+                    # An identical prompt gives an identical answer: only a maths failure earns an escalated retry.
                     self.trace.event("revise", "stop", "no_progress", round=rounds,
-                                     reason="no progress" + (" after a reasoning repair" if retry else " on non-maths issues")
+                                     reason="no progress" + (" after a reasoning repair" if level >= 2 else " on non-maths issues")
                                      + "; keeping the best candidate")
                     break
-            # Plain repairs reliably fix crashes, NaN and bad test setups but not a wrong formula: if a TEST or
-            # INVARIANT still fails after a plain repair, the next repair reasons first.
-            retry = any(f.startswith(("TEST", "INVARIANT")) for f in best.failures)
+            level = min(level + 1, 2) if maths(best) else 0
         return self._finish(best, rounds)
 
     def _generate(self, messages):
@@ -170,20 +169,22 @@ class Pipeline:
                          check_seconds=js.get("duration_s"), score=cand.score)
         return cand
 
-    def _revise(self, best, rnd, retry=False):
-        if not self.llm.can_afford(3000) or self.time_left() < 75:
-            self.trace.event("revise", "skip", "budget", round=rnd, requests_used=self.llm.requests_made,
+    def _revise(self, best, rnd, level=0):
+        need = THINK_MAX_TOKENS if level >= 2 else 3000
+        if not self.llm.can_afford(need) or self.time_left() < (120 if level >= 2 else 75):
+            self.trace.event("revise", "skip", "budget", round=rnd, level=level, requests_used=self.llm.requests_made,
                              completion_tokens_used=self.llm.completion_tokens, seconds_left=round(self.time_left(), 1))
             return None
+        retry = level >= 1
         include_excerpt = any(f.startswith("TEST") or "INVARIANT" in f for f in best.failures)
         msgs = prompts.repair_messages(self.case, best.spec, best.code, best.failures, best.warnings, include_excerpt, retry,
-                                       derive=retry and THINK_MODE == "derive")
+                                       derive=level == 1)
         self.trace.event("revise", "build_repair_prompt", "ok", round=rnd, problems=len(best.failures),
-                         include_excerpt=include_excerpt, retry_after_failed_fix=retry)
-        # A maths error that survived a plain repair gets one repair with the model's reasoning on: it costs
-        # reasoning tokens only in this rare case, while a wrong formula costs accuracy on every view of the page.
-        think = THINK_REASONING if (retry and THINK_MODE == "reasoning") else None
-        label = "_reasoning" if think else ("_derive" if retry else "")
+                         include_excerpt=include_excerpt, escalation=["plain", "derivation", "reasoning"][level])
+        # Hidden reasoning only at the top of the ladder: it costs reasoning tokens in this rare case, while a wrong
+        # formula costs accuracy on every view of the page.
+        think = THINK_REASONING if level >= 2 else None
+        label = ["", "_derive", "_reasoning"][level]
         try:
             res = self.llm.chat(msgs, stage="revise", purpose="repair_" + str(rnd) + label,
                                 max_tokens=THINK_MAX_TOKENS if think else REPAIR_MAX_TOKENS, reasoning=think)
@@ -285,6 +286,9 @@ def main(argv=None) -> int:
         trace.event("setup", "start", "ok", model=args.model, python=sys.version.split()[0], js_engine=checks.engine_available(),
                     limits={"requests": MAX_REQUESTS, "completion_tokens": MAX_COMPLETION_TOKENS, "seconds": HARD_LIMIT_S,
                             "internal_deadline_s": HARD_LIMIT_S - SAFETY_S, "max_repairs": MAX_REPAIRS})
+        if not checks.engine_available():
+            print("WARNING: no JavaScript engine (quickjs) on Python " + sys.version.split()[0] + ": executable checks are "
+                  "skipped. Use Python 3.11 with requirements.txt installed.", file=sys.stderr)
         case = _load_case(args.input, trace)
         if case is None:
             (out_dir / "index.html").write_text(render.render_fallback({}, "invalid case.json"), encoding="utf-8")

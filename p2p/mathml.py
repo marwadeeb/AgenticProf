@@ -1,100 +1,163 @@
-"""LaTeX -> MathML at generation time, so equations render in textbook form natively in the browser
-(Chromium supports MathML Core): no JavaScript, no CDN, no fonts. Output is whitelisted; anything
-unexpected falls back to escaped text so a bad formula can never break or inject into the page."""
+"""Apply a repair that returns only the top-level JavaScript declarations it changes.
+
+Repairs used to resend the whole CODE (~3k completion tokens) to change one function. Now the model
+returns just the changed `function f(...) {...}` / `const X = ...;` declarations and we splice them in
+by name. A reply that is a complete program (defines compute and view) replaces the code instead.
+"""
 from __future__ import annotations
 
-import html
 import re
 
-try:
-    from latex2mathml.converter import convert as _convert
-except ImportError:  # dependency missing: equations fall back to readable text
-    _convert = None
-
-_MATHML_TAGS = {"math", "mrow", "mi", "mn", "mo", "ms", "mtext", "mspace", "msub", "msup", "msubsup", "mfrac",
-                "msqrt", "mroot", "mover", "munder", "munderover", "mtable", "mtr", "mtd", "mstyle", "mpadded",
-                "mphantom", "menclose", "semantics", "annotation", "merror", "mmultiscripts", "mprescripts", "none"}
-_TAG = re.compile(r"</?([a-zA-Z][\w:-]*)")
-_INLINE = re.compile(r"(?<![\\$])\$(?!\s)([^$\n]{1,300}?)(?<![\s\\])\$(?!\d)")
+_DECL = re.compile(r"^\s*(?:async\s+)?(?:function\s*\*?\s*([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*))")
+_REGEX_PREV = set("(,=:[!&|?{};+-*%<>~^") | {""}
+_NEXT_DECL = re.compile(r"[ \t\r\n]*(?:async\s+function|function|const|let|var)\b")
 
 
-def _safe(mathml: str) -> bool:
-    return all(t.lower() in _MATHML_TAGS for t in _TAG.findall(mathml)) and "\\" not in re.sub(r"<[^>]*>", "", mathml)
-
-
-def tex(latex: str, display: bool = False):
-    """MathML for one LaTeX expression, or None if it cannot be converted cleanly."""
-    if _convert is None or not latex or not latex.strip():
-        return None
-    src = latex.strip().replace("<", r"\lt ").replace(">", r"\gt ")
-    try:
-        out = _convert(src, display="block" if display else "inline")
-    except Exception:
-        return None
-    return out if _safe(out) else None
-
-
-def equation_html(latex: str) -> str:
-    """Display equations: one per line (or split on \\\\); each line falls back to monospace TeX."""
-    lines = [ln for ln in re.split(r"\n|\\\\", latex or "") if ln.strip()]
-    out = []
-    for ln in lines:
-        m = tex(ln, display=True)
-        out.append(m if m else '<code class="tex">' + html.escape(ln.strip()) + "</code>")
-    return "".join('<div class="eq-line">' + x + "</div>" for x in out)
-
-
-def inline(text: str, rich) -> str:
-    """Apply `rich` to prose and convert $...$ segments to inline MathML."""
-    s = "" if text is None else str(text)
-    out, pos = [], 0
-    for m in _INLINE.finditer(s):
-        out.append(rich(s[pos:m.start()]))
-        mm = tex(m.group(1))
-        # Chromium ignores overflow on <math> itself: a wrapper lets a long formula scroll instead of widening the page.
-        out.append('<span class="im">' + mm + "</span>" if mm else '<code class="tex">' + html.escape(m.group(1)) + "</code>")
-        pos = m.end()
-    out.append(rich(s[pos:]))
-    return "".join(out)
-
-
-# LaTeX commands whose first letter is also a JSON escape (\b \f \n \r \t \u): a model that writes "\frac"
-# instead of "\\frac" would otherwise get a form feed + "rac" from a perfectly valid JSON parse.
-_LATEX_JSON_CLASH = re.compile(
-    r"(?:frac|text\w*|times|theta|tau|tanh?|top|tilde|triangle\w*|tfrac|to|nabla|neq?|nu|ni|not\w*|neg|nonumber|"
-    r"beta|bar|bf|binom|bold\w*|big\w*|bmod|bot|rho|right\w*|rangle|rm|rfloor|rceil|underline|underbrace|up\w*|"
-    r"forall|flat|frak)$")
-
-
-def fix_latex_escapes(s: str) -> str:
-    """Double single backslashes that start a LaTeX command inside JSON strings; leave real escapes alone."""
-    out, i, n, ins = [], 0, len(s), False
+def split_top_level(code: str) -> list:
+    """Split JS source into top-level statements, respecting strings, template literals, comments, regexes."""
+    out, start, i, n = [], 0, 0, len(code)
+    depth, stack, prev = 0, [], ""
     while i < n:
-        c = s[i]
-        if not ins:
-            ins = c == '"'
-            out.append(c)
+        ch = code[i]
+        nxt = code[i + 1] if i + 1 < n else ""
+        if stack and stack[-1] == "`":
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == "`":
+                stack.pop()
+            elif ch == "$" and nxt == "{":
+                stack.append("${")
+                depth += 1
+                i += 2
+                continue
             i += 1
             continue
-        if c == '"':
-            ins = False
-            out.append(c)
-            i += 1
+        if ch in "\"'":
+            j = i + 1
+            while j < n and code[j] != ch:
+                j += 2 if code[j] == "\\" else 1
+            i, prev = j + 1, "a"
             continue
-        if c != "\\" or i + 1 >= n:
-            out.append(c)
-            i += 1
+        if ch == "/" and nxt == "/":
+            j = code.find("\n", i)
+            i = n if j < 0 else j
             continue
-        nxt = s[i + 1]
-        if nxt in '\\"/':
-            out.append(s[i:i + 2])
-            i += 2
+        if ch == "/" and nxt == "*":
+            j = code.find("*/", i + 2)
+            i = n if j < 0 else j + 2
             continue
-        m = re.match(r"[a-zA-Z]+", s[i + 1:])
-        word = m.group(0) if m else ""
-        if word[:1] in "bfnrtu" and _LATEX_JSON_CLASH.match(word) and not re.match(r"u[0-9a-fA-F]{4}", s[i + 1:i + 6]):
-            out.append("\\\\")
-        else:
-            out.append("\\")
+        if ch == "/" and prev in _REGEX_PREV:
+            j, cls = i + 1, False
+            while j < n and (code[j] != "/" or cls) and code[j] != "\n":
+                if code[j] == "\\":
+                    j += 1
+                elif code[j] == "[":
+                    cls = True
+                elif code[j] == "]":
+                    cls = False
+                j += 1
+            i, prev = j + 1, "a"
+            continue
+        if ch == "`":
+            stack.append("`")
+        elif ch in "{([":
+            depth += 1
+        elif ch in "})]":
+            depth -= 1
+            if ch == "}" and stack and stack[-1] == "${" and depth >= 0:
+                stack.pop()
+                i += 1
+                continue
+            if depth == 0 and ch == "}":
+                # a top-level block ends: a function declaration statement is complete here
+                k = i + 1
+                while k < n and code[k] in " \t\r":
+                    k += 1
+                rest = code[start:i + 1]
+                if re.match(r"\s*(?:async\s+)?function\b", rest) and (k >= n or code[k] in "\n;"):
+                    out.append(rest.strip())
+                    start = i + 1
+        elif ch == ";" and depth == 0:
+            out.append(code[start:i + 1].strip())
+            start = i + 1
+        elif ch == "\n" and depth == 0 and code[start:i].strip() and _NEXT_DECL.match(code, i + 1):
+            out.append(code[start:i].strip())  # statement ended by a newline (no semicolon)
+            start = i + 1
+        if not ch.isspace():
+            prev = ch if not (ch.isalnum() or ch in "_$") else "a"
         i += 1
+    tail = code[start:].strip()
+    if tail:
+        out.append(tail)
+    return [s for s in out if s and s != ";"]
+
+
+def decl_name(stmt: str):
+    m = _DECL.match(stmt)
+    return (m.group(1) or m.group(2)) if m else None
+
+
+def is_full_program(code: str) -> bool:
+    names = {decl_name(s) for s in split_top_level(code)}
+    return {"compute", "view"} <= names
+
+
+_COL0_DECL = re.compile(r"^(?:async\s+)?(?:function\s*\*?\s*([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*))", re.M)
+
+
+def col0_names(code: str) -> set:
+    """Declarations that start at column 0: robust even when the code does not parse."""
+    return {m.group(1) or m.group(2) for m in _COL0_DECL.finditer(code or "")}
+
+
+def _splice_lines(old: str, repl: dict) -> str:
+    """Line-based splice: a declaration runs from its column-0 start to the next column-0 declaration."""
+    starts = [(m.start(), m.group(1) or m.group(2)) for m in _COL0_DECL.finditer(old)]
+    if not starts:
+        return old.rstrip() + "\n" + "\n".join(repl.values()) + "\n"
+    out, used = [old[:starts[0][0]]], set()
+    for i, (pos, name) in enumerate(starts):
+        end = starts[i + 1][0] if i + 1 < len(starts) else len(old)
+        if name in repl and name not in used:
+            out.append(repl[name].rstrip() + "\n")
+            used.add(name)
+        else:
+            out.append(old[pos:end])
+    out += [repl[k].rstrip() + "\n" for k in repl if k not in used]
     return "".join(out)
+
+
+def apply_patch(old: str, patch: str) -> tuple:
+    """Return (new_code, changed_names, mode). mode: 'full' | 'patch' | 'patch-lines' | 'unchanged' | 'unparseable'."""
+    patch = (patch or "").strip()
+    if not patch or patch.upper() == "UNCHANGED":
+        return old, [], "unchanged"
+    if is_full_program(patch):
+        return patch, ["<all>"], "full"
+    new_stmts = split_top_level(patch)
+    repl = {}
+    for s in new_stmts:
+        name = decl_name(s)
+        if name is None:
+            return old, [], "unparseable"  # loose statements: unsafe to splice
+        repl[name] = s
+    old_stmts = split_top_level(old)
+    out, used = [], set()
+    for s in old_stmts:
+        name = decl_name(s)
+        if name in repl:
+            out.append(repl[name])
+            used.add(name)
+        else:
+            out.append(s)
+    out += [repl[k] for k in repl if k not in used]
+    new = "\n".join(out) + "\n"
+    # If the old code did not parse (e.g. an unterminated string), the statement split can swallow later
+    # declarations; never lose one: fall back to a line-based splice and verify again.
+    if not col0_names(old) <= col0_names(new) | set(repl):
+        new = _splice_lines(old, repl)
+        if not col0_names(old) <= col0_names(new) | set(repl):
+            return old, [], "unparseable"
+        return new, list(repl), "patch-lines"
+    return new, list(repl), "patch"

@@ -238,7 +238,7 @@ function __hRun(cfgJSON) {
       var tparams = (t.params && typeof t.params === 'object') ? t.params : {};
       var unknown = Object.keys(tparams).filter(function (key) { return !C.some(function (cc) { return cc.id === key; }); });
       if (unknown.length) throw new Error('params use unknown control id(s) ' + unknown.join(', ') + ' (valid ids: ' + C.map(function (cc) { return cc.id; }).join(', ') + '), so they were ignored');
-      var tp = P2P.merge(C, base, tparams);
+      var tp = P2P.merge(C, base, tparams, true);
       var resized = Object.keys(tparams).filter(function (key) {
         var a = tparams[key], b = tp[key];
         return Array.isArray(a) && Array.isArray(b) && (a.length !== b.length || (Array.isArray(a[0]) && Array.isArray(b[0]) && a[0].length !== b[0].length));

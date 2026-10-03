@@ -79,9 +79,11 @@ class OpenRouterClient:
                 and self.completion_left() - SAFETY_TOKENS >= min_completion
                 and self.time_left() > 30)
 
-    def chat(self, messages, stage: str, purpose: str, max_tokens: int) -> dict:
+    def chat(self, messages, stage: str, purpose: str, max_tokens: int, reasoning=None) -> dict:
+        """reasoning: optional per-call override of the model's reasoning setting (e.g. {"effort": "low"})."""
         transient = 0
         stripped = False
+        reasoning = reasoning or self.reasoning
         while True:
             if self.requests_made >= self.max_requests:
                 raise LLMUnavailable("request budget exhausted")
@@ -97,11 +99,11 @@ class OpenRouterClient:
                     "provider": {"sort": os.getenv("P2P_PROVIDER_SORT", "throughput")}}
             if self.temperature is not None:
                 body["temperature"] = self.temperature
-            if self.reasoning:
-                body["reasoning"] = dict(self.reasoning)
+            if reasoning:
+                body["reasoning"] = dict(reasoning)
             self.requests_made += 1
             rec = {"call": self.requests_made, "purpose": purpose, "model": self.model, "max_tokens": mt,
-                   "reasoning_param": self.reasoning,
+                   "reasoning_param": reasoning,
                    "prompt_chars": sum(len(str(m.get("content", ""))) for m in messages)}
             t = time.monotonic()
             try:
@@ -150,9 +152,9 @@ class OpenRouterClient:
             emsg = (err.get("message") if isinstance(err, dict) else str(err or "")) or resp.text[:300]
             rec["error"] = str(emsg)[:300]
             self.trace.event(stage, "llm_call", "error", **rec)
-            if resp.status_code == 400 and not stripped and (self.reasoning or self.temperature is not None):
+            if resp.status_code == 400 and not stripped and (reasoning or self.temperature is not None):
                 stripped = True  # an optional parameter may be unsupported: retry once without them
-                self.reasoning = None
+                self.reasoning = reasoning = None
                 self.temperature = None
                 continue
             if resp.status_code in TRANSIENT or (resp.status_code == 200 and not choices):

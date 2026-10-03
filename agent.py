@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from p2p import checks, parsing, prompts, render  # noqa: E402
+from p2p import checks, jspatch, parsing, prompts, render  # noqa: E402
 from p2p.llm import LLMUnavailable, OpenRouterClient  # noqa: E402
 from p2p.spec import SPEC_KEYS, normalize_spec  # noqa: E402
 from p2p.trace import Trace  # noqa: E402
@@ -34,6 +34,10 @@ GEN_MAX_TOKENS = int(os.getenv("P2P_GEN_MAX_TOKENS", "14000"))
 REPAIR_MAX_TOKENS = int(os.getenv("P2P_REPAIR_MAX_TOKENS", "9000"))
 MAX_REPAIRS = int(os.getenv("P2P_MAX_REPAIRS", "2"))
 MAX_REQUESTS = 10
+# Measured on DeepSeek V4.1 Flash: effort "low" thought for 3.6k+ tokens and sometimes never answered;
+# a reasoning token cap (soft: ~2-3k used) leaves room for the answer inside THINK_MAX_TOKENS.
+THINK_REASONING = {"max_tokens": int(os.getenv("P2P_THINK_TOKENS", "1500")), "exclude": True}
+THINK_MAX_TOKENS = 6000
 MAX_COMPLETION_TOKENS = 30000
 
 
@@ -84,17 +88,20 @@ class Pipeline:
                 break
             if cand.score < best.score:
                 self.trace.event("revise", "accept_revision", "accepted", round=rounds, score_before=best.score, score_after=cand.score)
-                best, retry = cand, False
+                best = cand
             else:
                 self.trace.event("revise", "accept_revision", "rejected", round=rounds, score_before=best.score,
                                  score_after=cand.score, reason="revision did not reduce check failures; kept previous candidate")
-                # Measured on the practice cases: another round after a rejected repair never helped, so stop and
-                # save the tokens unless the page is still broken (crash / NaN), where one escalated retry is worth it.
-                if not best.fatal and not any(f.startswith(("Exception", "Displayed output")) for f in best.failures):
+                maths = any(f.startswith(("TEST", "INVARIANT")) for f in best.failures)
+                if retry or not maths:
+                    # An identical prompt gives an identical answer: only a maths failure earns a reasoning retry.
                     self.trace.event("revise", "stop", "no_progress", round=rounds,
-                                     reason="repair made no progress on non-fatal issues; keeping the best candidate to save tokens")
+                                     reason="no progress" + (" after a reasoning repair" if retry else " on non-maths issues")
+                                     + "; keeping the best candidate")
                     break
-                retry = True
+            # Plain repairs reliably fix crashes, NaN and bad test setups but not a wrong formula: if a TEST or
+            # INVARIANT still fails after a plain repair, the next repair reasons first.
+            retry = any(f.startswith(("TEST", "INVARIANT")) for f in best.failures)
         return self._finish(best, rounds)
 
     def _generate(self, messages):
@@ -169,17 +176,15 @@ class Pipeline:
         msgs = prompts.repair_messages(self.case, best.spec, best.code, best.failures, best.warnings, include_excerpt, retry)
         self.trace.event("revise", "build_repair_prompt", "ok", round=rnd, problems=len(best.failures),
                          include_excerpt=include_excerpt, retry_after_failed_fix=retry)
-        saved_temp = getattr(self.llm, "temperature", None)
-        if retry and saved_temp is not None:
-            self.llm.temperature = 0.7
+        # A maths error that survived a plain repair gets one repair with the model's reasoning on: it costs
+        # reasoning tokens only in this rare case, while a wrong formula costs accuracy on every view of the page.
+        think = THINK_REASONING if retry else None
         try:
-            res = self.llm.chat(msgs, stage="revise", purpose="repair_" + str(rnd), max_tokens=REPAIR_MAX_TOKENS)
+            res = self.llm.chat(msgs, stage="revise", purpose="repair_" + str(rnd) + ("_reasoning" if think else ""),
+                                max_tokens=THINK_MAX_TOKENS if think else REPAIR_MAX_TOKENS, reasoning=think)
         except LLMUnavailable as exc:
             self.trace.event("revise", "llm_call", "unavailable", round=rnd, error=str(exc))
             return None
-        finally:
-            if saved_temp is not None:
-                self.llm.temperature = saved_temp
         rp = parsing.split_repair(res["text"])
         spec = json.loads(json.dumps(best.spec))
         changed = []
@@ -192,11 +197,15 @@ class Pipeline:
                         changed.append(k)
             else:
                 self.trace.event("revise", "parse_spec_patch", "fail", round=rnd, error=perr)
-        code = best.code
-        if rp.code and rp.code.strip().upper() != "UNCHANGED":
-            code = rp.code
-            changed.append("CODE")
-        self.trace.event("revise", "apply_repair", "ok" if changed else "no_change", round=rnd, changed=changed, code_complete=rp.complete)
+        code, mode, names = best.code, "unchanged", []
+        if rp.code:
+            code, names, mode = jspatch.apply_patch(best.code, rp.code)
+            if mode == "unparseable":  # loose statements we cannot splice safely: keep the previous code
+                code = best.code
+            elif mode in ("patch", "full"):
+                changed.append("CODE")
+        self.trace.event("revise", "apply_repair", "ok" if changed else "no_change", round=rnd, changed=changed,
+                         code_mode=mode, code_declarations=names, code_complete=rp.complete)
         if not changed:
             return None
         return self._evaluate("revision_" + str(rnd), spec, code)

@@ -414,7 +414,7 @@ var P2P = (function () {
     return q;
   }
   function p2p_defaults(C) { return p2p_normalize(C, {}); }
-  function p2p_merge(C, base, over) {
+  function p2p_merge(C, base, over, exact) {
     var p = {}, k, i, c;
     for (k in base) if (HAS.call(base, k)) p[k] = base[k];
     if (over) for (k in over) if (HAS.call(over, k)) p[k] = over[k];
@@ -432,7 +432,18 @@ var P2P = (function () {
         if (Array.isArray(over[c.id][0])) bySize(c.cols, over[c.id][0].length);
       }
     }
-    return p2p_normalize(C, JSON.parse(JSON.stringify(p)));
+    var q = p2p_normalize(C, JSON.parse(JSON.stringify(p)));
+    /* exact (TESTS only): a fixed-size vector/matrix given with another size is used as given, because padding
+       a test's data with zeros changes the maths it checks. Presets stay UI-reachable and are never exact. */
+    for (i = 0; exact && over && i < C.length; i++) {
+      c = C[i];
+      if (!HAS.call(over, c.id) || !Array.isArray(over[c.id]) || !over[c.id].length) continue;
+      if (c.type === 'vector' && typeof c.length !== 'string') q[c.id] = p2p_vec(over[c.id], Math.min(over[c.id].length, 64), p2p_fill(c), null);
+      else if (c.type === 'matrix' && typeof c.rows !== 'string' && typeof c.cols !== 'string' && Array.isArray(over[c.id][0])) {
+        q[c.id] = over[c.id].slice(0, 64).map(function (row) { return p2p_vec(row, Math.min(row.length, 64), p2p_fill(c), null); });
+      }
+    }
+    return q;
   }
   return { normalize: p2p_normalize, defaults: p2p_defaults, merge: p2p_merge };
 })();

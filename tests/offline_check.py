@@ -80,7 +80,7 @@ class FakeLLM:
     def can_afford(self, n):
         return bool(self.responses) and self.requests_made < 10
 
-    def chat(self, messages, stage, purpose, max_tokens):
+    def chat(self, messages, stage, purpose, max_tokens, reasoning=None):
         if not self.responses:
             raise agent.LLMUnavailable("no scripted response left")
         self.requests_made += 1

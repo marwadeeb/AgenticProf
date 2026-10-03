@@ -1,5 +1,13 @@
-.env
-.venv/
 __pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
 out/
 runs/
+runs_*/
+.claude/
+.DS_Store
+.idea/
+.vscode/

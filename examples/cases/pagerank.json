@@ -1,0 +1,7 @@
+{
+  "id": "huffman-coding",
+  "source_url": "https://doi.org/10.1109/JRPROC.1952.273898",
+  "excerpt": "A Method for the Construction of Minimum-Redundancy Codes, D. A. Huffman, 1952 (paraphrased for practice). Given a set of messages with probabilities P(1) ≥ P(2) ≥ ... ≥ P(N), the goal is a code in which no codeword is the prefix of another and the average message length L_av = Σ P(i) L(i) is as small as possible. The procedure repeatedly combines the two least probable messages into a single composite message whose probability is the sum of the two, and reorders. When only one message remains, the codewords are read off by assigning one binary digit to each branch of the merges. The resulting code is optimum: no other prefix code for the same probabilities has a smaller average length. The more probable a message, the shorter (or equal) its codeword.",
+  "focus": "Explain Huffman's construction for a small alphabet (3 to 6 symbols). Let the learner edit the symbol probabilities (normalised to sum to 1) and the number of symbols. Show each merge step, the resulting tree and codewords, the codeword lengths, the average length L_av = Σ p_i L_i, and compare it with the entropy H = −Σ p_i log₂ p_i. Guide them through (a) equal probabilities and (b) one dominant symbol. Check that the code is prefix-free, that H ≤ L_av < H + 1, and that more probable symbols never get longer codewords.",
+  "audience": "Second-year computer engineering undergraduates who know binary trees and logarithms but not information theory."
+}

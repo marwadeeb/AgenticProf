@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="Paper-to-Playground">
+<title>Scaled Dot-Product Attention (Eq. 1)</title>
+<style>
+:root{color-scheme:light;
+--paper:#f7f3ea;--sheet:#fffdf8;--ink:#1c1917;--ink2:#44403c;--muted:#78716c;--line:#e7dfd0;--line2:#d6cab4;
+--accent:#e4572e;--accent-ink:#b8401d;--ocean:#1f5f8b;--mint:#2a9d8f;--sun:#ffd166;--sun-soft:#fff3cf;
+--ok:#2a7d4f;--okbg:#e8f4ec;--bad:#b42318;--badbg:#fdecea;
+--serif:"Iowan Old Style","Palatino Linotype","Book Antiqua",Palatino,"Georgia",serif;
+--sans:"Inter","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+--mono:ui-monospace,"SFMono-Regular","Cascadia Mono",Menlo,Consolas,"Liberation Mono",monospace;
+--math:"Cambria Math","STIX Two Math","Latin Modern Math","Libertinus Math",math,serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{margin:0;background:var(--paper);color:var(--ink);font:16.5px/1.65 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--ocean);text-underline-offset:3px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+math{font-family:var(--math)}math[display=block]{font-size:1.32em;margin:.2em 0;max-width:100%;overflow-x:auto;overflow-y:hidden}
+.im{display:inline-block;max-width:100%;overflow-x:auto;overflow-y:hidden;vertical-align:middle;line-height:1.2}
+.eq-line{max-width:100%;overflow-x:auto;overflow-y:hidden}
+p,dd,li,td,.why,.caption,.insight{overflow-wrap:anywhere}
+code{font-family:var(--mono);font-size:.9em;background:#efe8da;border-radius:4px;padding:1px 5px}code.tex{background:none;color:var(--ink2)}
+sub,sup{font-size:.72em;line-height:0}
+
+/* progress + top bar */
+#p2p-progress{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--accent),var(--sun));z-index:40;transition:width .12s linear}
+.topbar{position:sticky;top:0;z-index:30;background:rgba(247,243,234,.88);backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--line)}
+.topbar .wrap{display:flex;align-items:center;gap:18px;height:56px}
+.brand{font:700 13px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);white-space:nowrap}
+.brand b{color:var(--accent)}
+.toc{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}.toc::-webkit-scrollbar{display:none}
+.toc a{color:var(--ink2);text-decoration:none;font-size:13.5px;padding:6px 10px;border-radius:8px;white-space:nowrap}
+.toc a:hover{background:#efe8da}.toc a.on{color:var(--ink);background:#fff;box-shadow:inset 0 0 0 1px var(--line)}
+details.display{position:relative;flex:none}
+details.display summary{list-style:none;cursor:pointer;font-size:13.5px;color:var(--ink2);padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--sheet)}
+details.display summary::-webkit-details-marker{display:none}
+.settings{position:absolute;right:0;top:40px;width:260px;background:var(--sheet);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px;box-shadow:0 18px 40px -20px rgba(28,25,23,.35);font-size:14px}
+.settings label{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer}
+.settings select{width:auto;margin:0;padding:4px 6px}
+
+/* hero */
+.hero{padding:56px 0 30px}
+.eyebrow{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13.5px;color:var(--muted)}
+.eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--line2)}
+.hero h1{font:600 clamp(32px,5vw,58px)/1.06 var(--serif);letter-spacing:-.02em;margin:14px 0 18px;max-width:18ch}
+.hero h1 .hl{background:linear-gradient(transparent 62%,var(--sun) 62%)}
+.cite{font-size:15px;color:var(--ink2)}.cite .pt{font-style:italic}.cite a{word-break:break-all}
+.aud{margin-top:6px;font-size:14px;color:var(--muted)}
+.path{margin-top:26px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13.5px}
+.path .lbl{color:var(--muted);margin-right:4px}
+.path .step{display:inline-flex;align-items:center;gap:7px;padding:6px 11px 6px 8px;border-radius:999px;background:var(--sheet);border:1px solid var(--line);color:var(--ink2);transition:all .3s}
+.path .step i{width:16px;height:16px;border-radius:50%;border:2px solid var(--line2);display:inline-grid;place-items:center;font:700 10px/1 var(--sans);font-style:normal;color:#fff;transition:all .3s}
+.path .step.done{border-color:#bfe3d0;background:var(--okbg);color:var(--ok)}.path .step.done i{background:var(--ok);border-color:var(--ok)}
+.path .step.done i::after{content:"\2713"}
+.cheer{margin-left:6px;color:var(--ok);font-weight:600;opacity:0;transform:translateY(4px);transition:all .4s}.cheer.show{opacity:1;transform:none}
+
+/* sections */
+main{padding-bottom:30px}
+section.blk{padding:46px 0;border-top:1px solid var(--line)}
+.sec-head{display:grid;grid-template-columns:72px 1fr;gap:6px 16px;align-items:baseline;margin-bottom:20px}
+.sec-n{font:500 44px/1 var(--serif);color:transparent;-webkit-text-stroke:1.2px var(--accent);letter-spacing:-.02em}
+h2{font:600 clamp(24px,2.6vw,32px)/1.15 var(--serif);margin:0;letter-spacing:-.01em}
+.sec-sub{grid-column:2;color:var(--muted);font-size:15px;margin:0}
+@media (max-width:640px){.sec-head{grid-template-columns:1fr}.sec-sub{grid-column:1}.sec-n{font-size:34px}}
+h3{font:600 18px/1.3 var(--serif);margin:22px 0 8px}
+
+/* idea */
+.idea-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:34px;align-items:start}
+@media (max-width:900px){.idea-grid{grid-template-columns:minmax(0,1fr)}}
+.lede{font:400 20px/1.55 var(--serif);margin:0 0 16px;color:var(--ink)}
+.why{border-left:3px solid var(--sun);padding:4px 0 4px 16px;margin:16px 0;color:var(--ink2)}.why b{color:var(--ink)}
+.eq{background:var(--sheet);border:1px solid var(--line);border-radius:16px;padding:14px 22px 16px;overflow-x:auto;box-shadow:0 20px 40px -32px rgba(28,25,23,.35)}
+.eq::before{content:"The equation";display:block;font:600 11.5px/20px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-ink)}
+.eq-line{padding:6px 0;text-align:center;font-size:clamp(17px,1.9vw,22px)}
+.eq-src{font-size:13px;color:var(--muted);text-align:center;margin-top:6px}
+table.sym{border-collapse:collapse;width:100%;font-size:15px;margin-top:6px;display:block;overflow-x:auto}
+table.sym tbody{display:table;width:100%}
+table.sym td{border-top:1px solid var(--line);padding:9px 8px;vertical-align:top}
+table.sym td.s{width:1%;white-space:nowrap;font:18px var(--math);color:var(--ocean);padding-right:16px}
+
+/* playground */
+#playground{background:var(--sheet);border:1px solid var(--line);border-radius:22px;padding:34px 30px 30px;margin:10px 0;box-shadow:0 30px 60px -45px rgba(28,25,23,.45)}
+#playground .sec-head{margin-bottom:12px}
+.caption{color:var(--ink2);margin:0 0 20px;max-width:75ch}
+.pg{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:940px){.pg{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){#playground{padding:24px 14px;border-radius:16px}.wrap{padding:0 14px}.brand{display:none}}
+.rail{position:sticky;top:72px}
+@media (max-width:940px){.rail{position:static}}
+.controls{display:flex;flex-direction:column;gap:12px}
+.ctrl{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px;transition:border-color .2s,box-shadow .2s}
+.ctrl:hover{border-color:var(--line2)}.ctrl:focus-within{border-color:var(--ocean);box-shadow:0 0 0 3px rgba(31,95,139,.12)}
+.ctrl.nudge{animation:nudge 2.4s ease-in-out infinite}
+@keyframes nudge{0%,100%{box-shadow:0 0 0 0 rgba(228,87,46,0)}50%{box-shadow:0 0 0 6px rgba(228,87,46,.18)}}
+.ctrl-head{display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600;font-size:14.5px}
+.ctrl-head label{cursor:pointer}
+.ctrl-help{font-size:12.8px;color:var(--muted);margin-top:6px;line-height:1.45}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;margin:6px 0 0;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--accent) var(--fill,50%),#e5dccb var(--fill,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-7px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 6px rgba(0,0,0,.18);transition:transform .15s}
+input[type=range]:active::-webkit-slider-thumb{transform:scale(1.18)}
+input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:#e5dccb}input[type=range]::-moz-range-progress{height:6px;border-radius:999px;background:var(--accent)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--accent)}
+.ends{display:flex;justify-content:space-between;font:11.5px var(--mono);color:var(--muted)}
+input.num,select{font:14px var(--mono);border:1px solid var(--line2);border-radius:8px;padding:5px 8px;background:#fff;color:var(--ink)}
+input.num{width:92px;text-align:right}input.num.wide{width:100%;margin-top:8px}select{width:100%;margin-top:8px;font-family:var(--sans)}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid rgba(31,95,139,.45);outline-offset:2px}
+.switch{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;position:relative}.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch .knob{position:relative;flex:none;width:42px;height:24px;border-radius:999px;background:#d9cfbd;transition:background .2s}
+.switch .knob::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s cubic-bezier(.3,1.4,.5,1)}
+.switch input:checked+.knob{background:var(--accent)}.switch input:checked+.knob::after{transform:translateX(18px)}.switch input:focus-visible+.knob{outline:3px solid rgba(31,95,139,.45)}
+.state{font:12px var(--mono);color:var(--muted)}.gridwrap{overflow-x:auto;margin-top:8px}
+table.gridin{border-collapse:separate;border-spacing:4px}table.gridin th{font-size:12px;color:var(--muted);font-weight:600;padding:0 2px;text-align:center}
+table.gridin input{width:60px;font:13px var(--mono);text-align:right;border:1px solid var(--line2);border-radius:7px;padding:5px 6px;background:#fff;color:var(--ink);transition:background .3s}
+table.gridin input:focus{background:var(--sun-soft)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+button.btn{font:600 14px/1 var(--sans);border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:999px;padding:11px 18px;cursor:pointer;transition:transform .15s,background .2s}
+button.btn:hover{background:var(--accent);border-color:var(--accent);transform:translateY(-1px)}
+button.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line2)}button.btn.ghost:hover{background:#efe8da;color:var(--ink)}
+button.btn.small{padding:6px 12px;font-size:12.5px}
+.stage{min-width:0}
+.status{font-size:14.5px;background:var(--sun-soft);border:1px solid #f3dc9b;color:#5c4400;border-radius:12px;padding:10px 14px;margin-bottom:12px}
+.errbox{font-size:14px;background:var(--badbg);border:1px solid #f4c7c2;color:var(--bad);border-radius:12px;padding:10px 14px;margin-bottom:12px}
+.visual{margin:0;border-radius:16px;background:#fff;border:1px solid var(--line);padding:14px;min-height:140px}
+.visual svg{display:block;width:100%;height:auto}
+.insight{margin:14px 0 0;padding:14px 16px 14px 46px;border-radius:14px;background:var(--ink);color:#f5f1e8;font-size:15.5px;position:relative;animation:rise .35s ease-out}
+.insight::before{content:"\2192";position:absolute;left:16px;top:12px;font:700 20px/1 var(--sans);color:var(--sun)}
+@keyframes rise{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+.live-checks{margin:12px 0 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13.5px}.live-label{color:var(--muted);margin-right:2px}
+.chip{border-radius:999px;padding:4px 11px;font-weight:600;border:1px solid}.chip.ok{color:var(--ok);background:var(--okbg);border-color:#bfe3d0}.chip.bad{color:var(--bad);background:var(--badbg);border-color:#f4c7c2}
+.ro-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:24px 0 10px}
+.ro-head h3{margin:0}.ro-head .small{color:var(--muted)}
+ol.chain{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(178px,100%),1fr));gap:10px;counter-reset:s}
+.kv-item{border:1px solid var(--line);border-radius:14px;padding:11px 13px;background:#fff;position:relative;transition:border-color .3s}
+.kv-label{font-size:12.8px;color:var(--muted);line-height:1.35}
+.kv-value{font:600 19px/1.3 var(--mono);margin-top:4px;word-break:break-word;color:var(--ink)}
+.kv-formula{font:12.5px var(--mono);color:var(--ink2);margin-top:5px;word-break:break-word}
+.kv-note{font-size:12px;color:var(--muted);margin-top:4px}
+.kv-item.changed{border-color:#f0c95a;animation:chg 1.2s ease-out}@keyframes chg{0%{background:var(--sun)}100%{background:#fff}}
+.stepn{display:inline-grid;place-items:center;min-width:19px;height:19px;border-radius:50%;background:var(--ink);color:#fff;font:700 10.5px/1 var(--mono);margin-right:7px;vertical-align:1px}
+.delta{font-size:11px;margin-left:6px}.delta.up{color:var(--ok)}.delta.down{color:var(--bad)}
+.tblw{margin-top:14px;overflow-x:auto}.tblt{font-weight:600;font-size:14px;margin:4px 0 6px}
+table.tbl{border-collapse:collapse;font-size:14px;background:#fff;border-radius:10px;overflow:hidden}
+table.tbl th,table.tbl td{border:1px solid var(--line);padding:6px 11px;text-align:right}table.tbl th{background:var(--paper);font-weight:600;color:var(--ink2)}table.tbl td{font-family:var(--mono)}
+table.tbl td:first-child,table.tbl th:first-child{text-align:left}
+
+/* explorations */
+.xgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}@media (max-width:860px){.xgrid{grid-template-columns:minmax(0,1fr)}}
+.explore{background:var(--sheet);border:1px solid var(--line);border-radius:18px;padding:22px 22px 20px;display:flex;flex-direction:column;position:relative;transition:transform .2s,box-shadow .2s,border-color .2s}
+.explore:hover{transform:translateY(-2px);box-shadow:0 22px 40px -30px rgba(28,25,23,.45)}
+.explore.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(228,87,46,.15)}
+.explore.done .tag::after{content:" \2713 done";color:var(--ok)}
+.tag{font:700 11.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
+.explore h3{margin:10px 0 12px;font-size:21px}
+dl.steps{margin:0 0 16px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 14px;flex:1}
+dl.steps dt{font:700 11px/22px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--ocean);border-radius:6px;padding:0 8px;height:22px;align-self:start;text-align:center}
+dl.steps dt.k-obs{background:var(--mint)}dl.steps dt.k-why{background:var(--accent)}dl.steps dt.k-pred{background:var(--ink)}dl.steps dt.k-then{background:var(--sun);color:var(--ink)}
+svg text.halo{paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}
+dl.steps dd{margin:0}
+.reveal-q{display:none}.predict .reveal-q{display:contents}.reveal-a{display:contents}.predict .reveal-a:not(.shown){display:none}
+
+/* caveat + grounding + checks */
+.cavs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:16px}
+.callout{background:var(--sheet);border:1px solid var(--line);border-radius:18px;padding:20px 22px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:start}
+.callout .ico{width:40px;height:40px;border-radius:12px;background:var(--sun);display:grid;place-items:center;font:700 20px/1 var(--serif);color:var(--ink)}
+.callout.k-assumption .ico{background:#cfe3f1}.callout.k-limitation .ico{background:#f6d2c6}
+blockquote.q{margin:6px 0 2px;padding:6px 10px;border-left:3px solid var(--ocean);background:rgba(31,95,139,.06);border-radius:0 8px 8px 0;font:14.5px/1.5 var(--serif);color:var(--ink2)}
+blockquote.q::before{content:"Excerpt: ";font:600 11px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ocean)}
+.eq-live{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line2);font:13.5px/1.5 var(--mono);color:var(--ink2);text-align:center}
+.eq-live b{font-family:var(--sans);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);margin-right:8px}
+.sharebar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:13px;color:var(--muted)}
+.callout .k{font:700 11.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}.callout p{margin:8px 0 0;font-size:16.5px}
+.ground{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}@media (max-width:860px){.ground{grid-template-columns:minmax(0,1fr)}}
+.gcol{border-radius:16px;padding:18px 20px;background:var(--sheet);border:1px solid var(--line)}
+.gcol h3{margin:0 0 10px;font-size:16px;display:flex;align-items:center;gap:8px}
+.gcol h3::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--ocean)}.gcol.ours h3::before{background:var(--accent)}
+.gcol ul{margin:0;padding-left:18px}.gcol li{margin:6px 0}
+.disclaimer{margin-top:16px;font-size:14px;color:var(--ink2);border-left:3px solid var(--line2);padding:2px 0 2px 14px}
+details.excerpt{margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:12px 16px;background:var(--sheet)}
+details.excerpt summary{cursor:pointer;font-weight:600}details.excerpt p{font:15.5px/1.6 var(--serif);color:var(--ink2)}
+.tests-summary{font-size:15.5px;margin:0 0 12px}.tests-summary.ok b{color:var(--ok)}.tests-summary.bad b{color:var(--bad)}
+ul.tests{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:8px}
+ul.tests li{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;border:1px solid var(--line);background:var(--sheet);border-radius:12px;padding:9px 12px;font-size:14.5px}
+ul.tests .badge{font:700 10.5px/1 var(--mono);padding:4px 7px;border-radius:6px;color:#fff;background:var(--ok)}ul.tests li.fail .badge{background:var(--bad)}
+ul.tests code{font-size:11.5px;color:var(--muted);background:none;padding:0}ul.tests .terr{color:var(--bad);font-size:13px}
+.muted{color:var(--muted)}.small{font-size:12.5px;font-weight:400}
+footer{color:var(--muted);font-size:13px;padding:10px 0 50px;text-align:center}
+.flash{animation:flash 1.3s ease-out}@keyframes flash{0%{box-shadow:0 0 0 0 rgba(228,87,46,.5)}100%{box-shadow:0 0 0 22px rgba(228,87,46,0)}}
+.hide-details .details,.hide-details .ctrl-help{display:none}
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}.reveal.in{opacity:1;transform:none}
+@media print{.topbar,.btns,button,#p2p-progress,.path{display:none}.reveal{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
+
+/* dark */
+body.dark{--paper:#151311;--sheet:#1d1a17;--ink:#f1ece2;--ink2:#d6cfc2;--muted:#a39a8c;--line:#2f2a24;--line2:#463f36;--sun-soft:#3a2f12;--okbg:#10291c;--badbg:#3a1512;color-scheme:dark}
+.dark .topbar{background:rgba(21,19,17,.88)}.dark .toc a.on{background:var(--sheet)}.dark .toc a:hover,.dark button.btn.ghost:hover{background:#2a251f}
+.dark input.num,.dark select,.dark table.gridin input,.dark .kv-item,.dark table.tbl,.dark .visual{background:#221e1a;color:var(--ink);border-color:var(--line2)}
+.dark .visual svg{filter:invert(.9) hue-rotate(180deg) saturate(1.2)}.dark code{background:#2a251f}
+.dark button.btn{background:var(--ink);color:var(--paper)}.dark .insight{background:#2a251f}
+.dark .status{color:#f7e3a6;border-color:#6b5617}.dark .kv-item.changed{animation:none;border-color:#c9a23a}
+</style>
+</head>
+<body>
+<div id="p2p-progress" aria-hidden="true"></div>
+<div class="topbar"><div class="wrap">
+<div class="brand">Paper <b>&rarr;</b> Playground</div>
+<nav class="toc" aria-label="Sections"><a href="#idea">The idea</a><a href="#playground">Playground</a><a href="#explore">Explore</a><a href="#caveat">Assumptions, limits and pitfalls</a><a href="#source">Source</a><a href="#checks">Checks</a></nav>
+<details class="display"><summary>Display</summary>
+<div class="settings" id="p2p-settings" role="group" aria-label="Display settings (no effect on the computations)">
+<label for="set-theme">Theme <select id="set-theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+<label for="set-palette">Colours <select id="set-palette"><option value="standard">Standard</option><option value="colorblind">Colour-blind safe</option><option value="contrast">High contrast</option><option value="grayscale">Greyscale</option></select></label>
+<label for="set-size">Text size <select id="set-size"><option value="0.9">90%</option><option value="1" selected>100%</option><option value="1.12">112%</option><option value="1.25">125%</option></select></label>
+<label>Formulas and notes <input type="checkbox" id="set-details" checked></label>
+<label>Quiz me (hide answers) <input type="checkbox" id="set-predict"></label>
+</div></details>
+</div></div>
+<header class="hero"><div class="wrap">
+<div class="eyebrow"><span>Interactive explainer</span><span class="dot"></span><span>Section 3.2.1, Equation 1</span></div>
+<h1>Scaled <span class="hl">Dot-Product Attention</span> (Eq. 1)</h1>
+<div class="cite"><span class="pt">Attention Is All You Need</span> &middot; Vaswani et al., 2017 &middot; Section 3.2.1, Equation 1 &middot; <a href="https://arxiv.org/html/1706.03762v7" rel="noopener noreferrer">arxiv.org/html/1706.03762v7</a></div>
+<div class="aud">Written for second- or third-year engineering undergraduates who know matrix multiplication and exponentials but have not studied neural networks.</div>
+<div class="path" id="p2p-path" aria-label="Your path through this page"><span class="lbl">Your path</span>
+<span class="step" id="path-play"><i></i>Move a control</span>
+<span class="step" id="path-x1"><i></i>Exploration 1</span>
+<span class="step" id="path-x2"><i></i>Exploration 2</span>
+<span class="step" id="path-caveat"><i></i>The catch</span>
+<span class="cheer" id="p2p-cheer" aria-live="polite"></span></div>
+</div></header>
+<main class="wrap">
+<section class="blk" id="idea"><div class="sec-head"><span class="sec-n">01</span><h2>The idea</h2></div><div class="idea-grid reveal"><div><p class="lede">Attention compares a query with every key by a dot product, turning the scores into weights with a softmax, then mixes the values using those weights. Dividing the scores by <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msqrt><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></msqrt></mrow></math></span> keeps them from growing so large that the softmax becomes almost a hard pick with tiny gradients.</p><div class="why"><b>Why it matters.</b> This one equation is the core operation of the Transformer, and the <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mn>1</mn><mo>&#x0002F;</mo><msqrt><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></msqrt></mrow></math></span> factor is the small detail that makes training stable when the key dimension <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></math></span> is large.</div></div><div><div class="eq" role="math"><div class="eq-line"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">n</mi></mrow><mo stretchy="false">&#x00028;</mo><mi>Q</mi><mo>&#x0002C;</mo><mi>K</mi><mo>&#x0002C;</mo><mi>V</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0003D;</mo><mrow><mi mathvariant="normal">s</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">f</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">m</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">x</mi></mrow><mspace width="negativethinmathspace" /><mrow><mo stretchy="true" fence="true" form="prefix">&#x00028;</mo><mfrac><mrow><mi>Q</mi><msup><mi>K</mi><mrow><mo>&#x022A4;</mo></mrow></msup></mrow><mrow><msqrt><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></msqrt></mrow></mfrac><mo stretchy="true" fence="true" form="postfix">&#x00029;</mo></mrow><mi>V</mi></mrow></math></div><div class="eq-src">Section 3.2.1, Equation 1</div><div class="eq-live" id="p2p-eqlive" aria-live="polite" hidden></div></div><h3>What each symbol means</h3><table class="sym"><tbody><tr><td class="s"><span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>Q</mi></mrow></math></span></td><td>query matrix, one query per row, <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></math></span> columns</td></tr><tr><td class="s"><span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>K</mi></mrow></math></span></td><td>key matrix, one key per row, <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></math></span> columns</td></tr><tr><td class="s"><span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>V</mi></mrow></math></span></td><td>value matrix, one value vector per row, <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mi>v</mi></msub></mrow></math></span> columns</td></tr><tr><td class="s"><span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></math></span></td><td>dimension of queries and keys (number of columns of <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>Q</mi></mrow></math></span> and <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>K</mi></mrow></math></span>)</td></tr><tr><td class="s"><span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>Q</mi><msup><mi>K</mi><mrow><mo>&#x022A4;</mo></mrow></msup></mrow></math></span></td><td>matrix of raw dot-product scores, entry <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><mi>i</mi><mo>&#x0002C;</mo><mi>j</mi><mo stretchy="false">&#x00029;</mo></mrow></math></span> is query <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>i</mi></mrow></math></span> dotted with key <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>j</mi></mrow></math></span></td></tr><tr><td class="s"><span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msqrt><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></msqrt></mrow></math></span></td><td>scaling factor that counteracts large dot products</td></tr><tr><td class="s"><span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mrow><mi mathvariant="normal">s</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">f</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">m</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">x</mi></mrow></mrow></math></span></td><td>row-wise normalisation: <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mi>e</mi><mrow><msub><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow></msup><mo>&#x0002F;</mo><msub><mo>&#x02211;</mo><mi>j</mi></msub><msup><mi>e</mi><mrow><msub><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow></msup></mrow></math></span></td></tr></tbody></table></div></div></section>
+<section class="blk" id="playground"><div class="sec-head"><span class="sec-n">02</span><h2>Playground</h2><p class="sec-sub">Change anything on the left: every number and picture is recomputed live.</p></div>
+<p class="caption">Top-left: the score matrix <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>Q</mi><msup><mi>K</mi><mrow><mo>&#x022A4;</mo></mrow></msup></mrow></math></span> (or its scaled version) as a heatmap, rows are queries, columns are keys, red = positive, blue = negative. Top-right: the attention weights <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>A</mi></mrow></math></span> as bars, one group per query, each group summing to 1. Bottom-left: the output rows <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>A</mi><mi>V</mi></mrow></math></span> as bars, one group per output dimension. Bottom-right: the largest weight for each query, showing how sharp the softmax is.</p>
+<div class="pg">
+<div class="rail"><div id="p2p-controls" class="controls" aria-label="Controls"></div><div class="btns"><button type="button" class="btn ghost" id="p2p-reset">Reset to defaults</button><button type="button" class="btn ghost" id="p2p-share">Copy link to this state</button></div></div>
+<div class="stage">
+<div id="p2p-status" class="status" role="status" hidden></div>
+<div id="p2p-error" class="errbox" role="alert" hidden></div>
+<figure class="visual" id="p2p-visual" aria-label="Top-left: the score matrix QK^{\top} (or its scaled version) as a heatmap, rows are queries, columns are keys, red = positive, blue = negative. Top-right: the attention weights A as bars, one group per query, each group summing to 1. Bottom-left: the output rows A V as bars, one group per output dim"></figure>
+<p id="p2p-insight" class="insight" aria-live="polite" hidden></p>
+<div id="p2p-live-checks" class="live-checks" aria-live="polite" hidden></div>
+<div class="ro-head"><h3>Step by step</h3><span class="small">highlighted = changed by your last edit</span></div>
+<div id="p2p-readout" aria-live="polite"></div>
+</div></div>
+</section>
+<section class="blk" id="explore"><div class="sec-head"><span class="sec-n">03</span><h2>Guided explorations</h2><p class="sec-sub">Load a starting state, make one change, and watch what happens.</p></div><div class="xgrid"><article class="explore reveal" id="exploration-1"><div><span class="tag">Exploration 1</span></div><h3>All-equal scores give uniform weights</h3><dl class="steps"><dt class="k-do">Do</dt><dd>Set every entry of Q to 1 (Q = [[1,1,1],[1,1,1]]).</dd><div class="reveal-q"><dt class="k-pred">Guess</dt><dd>What do you expect, and why? <button type="button" class="btn small ghost" id="reveal-1" data-reveal="1">Reveal</button></dd></div><div class="reveal-a" id="answer-1"><dt class="k-obs">See</dt><dd>In the weights panel every bar for a query has the same height, and the readout shows each weight = 1/3 ≈ 0.333 with row sum 1.000. The output rows equal the column means of V, (0.667, 0.667).</dd><dt class="k-why">Why</dt><dd>Each query dots to the same value with every key, so all scores <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow></math></span> are equal. Softmax of equal scores is <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mi>e</mi><mrow><mi>s</mi></mrow></msup><mo>&#x0002F;</mo><msub><mo>&#x02211;</mo><mi>j</mi></msub><msup><mi>e</mi><mrow><mi>s</mi></mrow></msup><mo>&#x0003D;</mo><mn>1</mn><mo>&#x0002F;</mo><mi>n</mi></mrow></math></span> regardless of <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>s</mi></mrow></math></span>, so the scaling cannot change the weights here.</dd><dt class="k-then">Then</dt><dd>Turn the scaling toggle off: the weights stay at 1/3, confirming that <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mn>1</mn><mo>&#x0002F;</mo><msqrt><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></msqrt></mrow></math></span> only rescales scores, not uniform weights.</dd></div></dl><div><button type="button" class="btn" id="explore-1" data-explore="0">Load the starting state &rarr;</button></div></article><article class="explore reveal" id="exploration-2"><div><span class="tag">Exploration 2</span></div><h3>One dominant score concentrates the weight</h3><dl class="steps"><dt class="k-do">Do</dt><dd>Set Q = [[3,0,0],[0,0,0]] so query 1 scores 3 against key 1 and 0 against the others.</dd><div class="reveal-q"><dt class="k-pred">Guess</dt><dd>What do you expect, and why? <button type="button" class="btn small ghost" id="reveal-2" data-reveal="2">Reveal</button></dd></div><div class="reveal-a" id="answer-2"><dt class="k-obs">See</dt><dd>Query 1&#x27;s weight bars peak on key 1 (about 0.88 with scaling on, since <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mi>e</mi><mrow><mn>3</mn><mo>&#x0002F;</mo><msqrt><mrow><mn>3</mn></mrow></msqrt></mrow></msup><mo>&#x02248;</mo><mn>5.65</mn></mrow></math></span> versus 1 for the others), and its output row moves toward <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>v</mi><mn>1</mn></msub><mo>&#x0003D;</mo><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x0002C;</mo><mn>0</mn><mo stretchy="false">&#x00029;</mo></mrow></math></span>. Query 2 stays uniform at 1/3.</dd><dt class="k-why">Why</dt><dd>The softmax weight is <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mi>e</mi><mrow><msub><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow></msup><mo>&#x0002F;</mo><msub><mo>&#x02211;</mo><mi>j</mi></msub><msup><mi>e</mi><mrow><msub><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow></msup></mrow></math></span>, so a larger score difference pushes weight toward the largest score. Dividing by <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msqrt><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></msqrt></mrow></math></span> shrinks that difference, keeping the distribution softer.</dd><dt class="k-then">Then</dt><dd>Raise the score gain to 8: the top weight approaches 1 and the output row approaches <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>v</mi><mn>1</mn></msub></mrow></math></span> exactly, showing the sharp, low-gradient regime the paper warns about.</dd></div></dl><div><button type="button" class="btn" id="explore-2" data-explore="1">Load the starting state &rarr;</button></div></article></div></section>
+<section class="blk" id="caveat"><div class="sec-head"><span class="sec-n">04</span><h2>Assumptions, limits and pitfalls</h2><p class="sec-sub">What the idea quietly assumes, where it stops working, and the trap most learners fall into.</p></div><div class="cavs"><div class="callout reveal k-assumption"><div class="ico" aria-hidden="true">A</div><div><span class="k">Assumption</span><p>The excerpt assumes queries and keys share dimension <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></math></span> so that <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>Q</mi><msup><mi>K</mi><mrow><mo>&#x022A4;</mo></mrow></msup></mrow></math></span> is defined, and that softmax is applied row-wise (each query normalises over all keys). Our playground keeps <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></math></span> equal for <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>Q</mi></mrow></math></span> and <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>K</mi></mrow></math></span> and normalises each row.</p></div></div><div class="callout reveal k-limitation"><div class="ico" aria-hidden="true">L</div><div><span class="k">Limitation</span><p>We use tiny hand-editable matrices, not the paper&#x27;s trained models, so no number here reproduces the paper&#x27;s experiments. The gain slider only emulates the effect of a larger <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></math></span>; it does not change the actual dimension.</p></div></div><div class="callout reveal k-common-misunderstanding"><div class="ico" aria-hidden="true">?</div><div><span class="k">Common misunderstanding</span><p>Scaling by <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mn>1</mn><mo>&#x0002F;</mo><msqrt><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></msqrt></mrow></math></span> does not change which key wins, only how sharply the weights concentrate. With all-equal scores the weights are <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mn>1</mn><mo>&#x0002F;</mo><mi>n</mi></mrow></math></span> whether or not you scale, as the first exploration shows.</p></div></div></div></section>
+<section class="blk" id="source"><div class="sec-head"><span class="sec-n">05</span><h2>Source grounding</h2><p class="sec-sub">What comes from the paper, and what is ours.</p></div><div class="ground reveal"><div class="gcol src"><h3>Supported by the source excerpt</h3><ul><li>Attention maps a query and key-value pairs to an output (Section 3.2.1).<blockquote class="q">An attention function maps a query and a set of key-value pairs to an output.</blockquote></li><li>Scores are the query-key dot products divided by <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msqrt><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></msqrt></mrow></math></span>, then softmaxed to weight the values (Eq. 1).</li><li>The authors suspect large <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></math></span> makes dot products large, pushing softmax into regions of extremely small gradients, and scale by <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mn>1</mn><mo>&#x0002F;</mo><msqrt><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></msqrt></mrow></math></span> to counteract this (Section 3.2.1).<blockquote class="q">They suspect that for large d_k the dot products grow large in magnitude, pushing the softmax into regions with extremely small gradients, and scale by 1/√d_k to counteract this.</blockquote></li></ul></div><div class="gcol ours"><h3>Our examples, simplifications and background</h3><ul><li>The specific toy Q, K, V values, the gain slider, the heatmap/bar layout and the numeric readouts are our own illustrations.</li><li>We add the standard row-wise softmax formula <span class="im"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mi>e</mi><mrow><msub><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow></msup><mo>&#x0002F;</mo><msub><mo>&#x02211;</mo><mi>j</mi></msub><msup><mi>e</mi><mrow><msub><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow></msup></mrow></math></span> as background, not quoted from the excerpt.</li><li>The claim that scaling leaves uniform weights unchanged is a mathematical consequence we derive, not a paper statement.</li></ul></div></div><p class="disclaimer"><b>Scope.</b> Every number in the playground is computed live from small, illustrative inputs chosen for teaching. The page demonstrates the mechanism described in the excerpt; it does not reproduce the paper&#x27;s experiments or reported results. The paper itself was not fetched during generation: statements attributed to it rest on the supplied excerpt.</p><details class="excerpt" id="source-excerpt"><summary>Read the source excerpt this page was generated from (122 words)</summary><p>Section 3.2.1, Scaled Dot-Product Attention (paraphrased for practice). An attention function maps a query and a set of key-value pairs to an output. Queries and keys have dimension d_k and values have dimension d_v. For each query we take its dot product with every key, divide each by √d_k, and apply a softmax to obtain weights on the values. With queries packed into a matrix Q, keys into K and values into V: Attention(Q, K, V) = softmax(QKᵀ/√d_k) V (Equation 1). The authors compare this with additive attention and with unscaled dot-product attention. They suspect that for large d_k the dot products grow large in magnitude, pushing the softmax into regions with extremely small gradients, and scale by 1/√d_k to counteract this.</p></details></section>
+<section class="blk" id="checks"><div class="sec-head"><span class="sec-n">06</span><h2>Built-in correctness checks</h2><p class="sec-sub">These call the same <code>compute()</code> that drives the playground. They were executed by the generator before this page was written (5/5 passed) and are re-run below, live in your browser.</p></div><p id="p2p-tests-summary" class="tests-summary">Running&hellip;</p><ul id="p2p-tests" class="tests"></ul></section>
+</main>
+<footer>Generated by Paper-to-Playground with <code>deepseek/deepseek-v4.1-flash</code> on 2026-10-03. Self-contained page: works offline, makes no network requests.</footer>
+<noscript><div class="wrap"><p class="errbox">The playground needs JavaScript. The explanation above is still readable.</p></div></noscript>
+<script>/* Paper-to-Playground runtime library (generic; contains nothing paper-specific).
+ * V   - small helpers that build SVG markup as strings; generated view() code uses them.
+ * P2P - parameter normalisation shared by the generated page and the offline checker.
+ * Every function is named (v_*, p2p_*) so that error stack traces can be attributed. */
+var V = (function () {
+  'use strict';
+  var C = {
+    ink: '#1c1917', muted: '#6b6359', grid: '#ebe4d6', axis: '#a8a092', bg: '#fffdf8', panel: '#f6f1e7',
+    blue: '#1f5f8b', orange: '#e4572e', green: '#2a9d8f', red: '#c0392b', purple: '#6a4c93',
+    teal: '#17a398', pink: '#d1495b', gray: '#7a7266', yellow: '#e9a23b'
+  };
+  C.series = [C.blue, C.orange, C.green, C.red, C.purple, C.teal, C.pink, C.gray];
+  var ALIAS = { size: 'font-size', anchor: 'text-anchor', weight: 'font-weight', dash: 'stroke-dasharray',
+    sw: 'stroke-width', baseline: 'dominant-baseline', family: 'font-family', cls: 'class' };
+  var SKIP = { head: 1, label: 1, textColor: 1 };
+  var HAS = Object.prototype.hasOwnProperty;
+  var SLICE = Array.prototype.slice;
+
+  function v_isObj(a) { return a !== null && typeof a === 'object' && !Array.isArray(a); }
+  function v_num(v, d) { return (typeof v === 'number' && isFinite(v)) ? v : d; }
+  function v_esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function v_r2(v) { return typeof v === 'number' ? Math.round(v * 100) / 100 : v; }
+  function v_kids(list) {
+    var out = [];
+    function v_walk(x) {
+      var i;
+      if (Array.isArray(x)) { for (i = 0; i < x.length; i++) v_walk(x[i]); }
+      else if (x !== null && x !== undefined && x !== false && x !== true && x !== '') out.push(String(x));
+    }
+    v_walk(list);
+    return out.join('');
+  }
+  function v_attrs(def, user, colorKey) {
+    var m = {}, srcs = [v_isObj(def) ? def : {}, v_isObj(user) ? user : {}], i, k, key, s = '';
+    for (i = 0; i < 2; i++) {
+      for (k in srcs[i]) {
+        if (!HAS.call(srcs[i], k) || HAS.call(SKIP, k)) continue;
+        key = k === 'color' ? (colorKey || 'fill') : (HAS.call(ALIAS, k) ? ALIAS[k] : k);
+        m[key] = srcs[i][k];
+      }
+    }
+    for (k in m) {
+      if (!HAS.call(m, k) || m[k] === undefined || m[k] === null || m[k] === false) continue;
+      s += ' ' + k + '="' + v_esc(v_r2(m[k])) + '"';
+    }
+    return s;
+  }
+  function v_fmt(x, d) {
+    if (typeof x !== 'number') return String(x);
+    if (x !== x) return 'NaN';
+    if (x === Infinity) return '\u221e';
+    if (x === -Infinity) return '-\u221e';
+    d = (typeof d === 'number' && isFinite(d)) ? Math.max(0, Math.min(10, Math.round(d))) : 3;
+    var ax = Math.abs(x);
+    if (ax < 1e-12) return (0).toFixed(d);
+    if (ax >= 1e7 || (d > 0 && ax < 0.5 * Math.pow(10, -d))) return x.toExponential(Math.max(1, Math.min(3, d)));
+    var s = x.toFixed(d);
+    if (/^-0(\.0+)?$/.test(s)) s = s.slice(1);
+    return s;
+  }
+  function v_scale(d0, d1, r0, r1) {
+    var k = (d1 - d0) === 0 ? 0 : (r1 - r0) / (d1 - d0), mid = (r0 + r1) / 2;
+    return function v_scaled(v) { return k === 0 ? mid : r0 + (v - d0) * k; };
+  }
+  function v_linspace(a, b, n) {
+    n = Math.max(2, Math.round(v_num(n, 2)));
+    var out = [], i;
+    for (i = 0; i < n; i++) out.push(a + (b - a) * i / (n - 1));
+    return out;
+  }
+  function v_range(n) { var out = [], i; for (i = 0; i < n; i++) out.push(i); return out; }
+  function v_ticks(a, b, n) {
+    n = n || 5;
+    if (!(isFinite(a) && isFinite(b))) return [];
+    if (a === b) return [a];
+    if (a > b) { var t = a; a = b; b = t; }
+    var raw = (b - a) / n, step = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), err = raw / step;
+    if (err >= 7.5) step *= 10; else if (err >= 3.5) step *= 5; else if (err >= 1.5) step *= 2;
+    var out = [], v = Math.ceil(a / step - 1e-9) * step, i = 0;
+    for (; v <= b + step * 1e-6 && i < 60; v += step, i++) out.push(Math.abs(v) < step * 1e-9 ? 0 : parseFloat(v.toPrecision(12)));
+    return out;
+  }
+  function v_tickDigits(ts) {
+    if (ts.length < 2) return 2;
+    var st = Math.abs(ts[1] - ts[0]);
+    if (!(st > 0)) return 2;
+    return Math.max(0, Math.min(6, -Math.floor(Math.log(st) / Math.LN10 + 1e-9)));
+  }
+  function v_hex(c) {
+    c = String(c).replace('#', '');
+    if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+    var n = parseInt(c, 16);
+    if (!isFinite(n)) n = 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function v_mix(a, b, t) {
+    t = Math.max(0, Math.min(1, +t || 0));
+    var A = v_hex(a), B = v_hex(b), o = '#', i, v;
+    for (i = 0; i < 3; i++) { v = Math.round(A[i] + (B[i] - A[i]) * t); o += (v < 16 ? '0' : '') + v.toString(16); }
+    return o;
+  }
+  function v_heat(v, lo, hi) {
+    lo = v_num(lo, 0); hi = v_num(hi, 1);
+    return v_mix(PAL.heatLo, PAL.heatHi, hi === lo ? 0.5 : (v - lo) / (hi - lo));
+  }
+  function v_div(v, m) {
+    m = Math.abs(v_num(m, 1)) || 1;
+    var t = Math.max(-1, Math.min(1, v / m));
+    return t >= 0 ? v_mix('#fbf8f2', PAL.divPos, t) : v_mix('#fbf8f2', PAL.divNeg, -t);
+  }
+  function v_ink(bg) { var c = v_hex(bg); return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255 > 0.58 ? C.ink : '#ffffff'; }
+
+  var DEF = { blue: C.blue, orange: C.orange, green: C.green, red: C.red, purple: C.purple, teal: C.teal,
+    pink: C.pink, gray: C.gray, yellow: C.yellow, ink: C.ink, muted: C.muted };
+  var PAL = { heatLo: '#fbf6ec', heatHi: '#1f5f8b', divNeg: '#e4572e', divPos: '#1f5f8b' };
+  var PALETTES = {
+    standard: { colors: {}, heatLo: '#fbf6ec', heatHi: '#1f5f8b', divNeg: '#e4572e', divPos: '#1f5f8b' },
+    colorblind: { colors: { blue: '#0072B2', orange: '#E69F00', green: '#009E73', red: '#D55E00', purple: '#CC79A7',
+      teal: '#56B4E9', pink: '#882255', gray: '#666666', yellow: '#B8A000' }, heatLo: '#f7fbff', heatHi: '#08306b', divNeg: '#D55E00', divPos: '#0072B2' },
+    contrast: { colors: { blue: '#0033cc', orange: '#c2410c', green: '#047857', red: '#b91c1c', purple: '#6d28d9', teal: '#0e7490',
+      pink: '#be185d', gray: '#374151', yellow: '#a16207', ink: '#000000', muted: '#334155' }, heatLo: '#ffffff', heatHi: '#000080', divNeg: '#b91c1c', divPos: '#0033cc' },
+    grayscale: { colors: { blue: '#1f2937', orange: '#6b7280', green: '#4b5563', red: '#111827', purple: '#9ca3af', teal: '#374151',
+      pink: '#6b7280', gray: '#9ca3af', yellow: '#d1d5db' }, heatLo: '#f9fafb', heatHi: '#111827', divNeg: '#6b7280', divPos: '#111827' }
+  };
+  function v_setPalette(name) {
+    var P = HAS.call(PALETTES, name) ? PALETTES[name] : PALETTES.standard, k;
+    for (k in DEF) if (HAS.call(DEF, k)) C[k] = HAS.call(P.colors, k) ? P.colors[k] : DEF[k];
+    C.series = [C.blue, C.orange, C.green, C.red, C.purple, C.teal, C.pink, C.gray];
+    PAL.heatLo = P.heatLo; PAL.heatHi = P.heatHi; PAL.divNeg = P.divNeg; PAL.divPos = P.divPos;
+    return HAS.call(PALETTES, name) ? name : 'standard';
+  }
+  function v_svg(w, h) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + v_r2(v_num(w, 760)) + ' ' + v_r2(v_num(h, 420)) +
+      '" role="img" font-family="Inter, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif" font-size="13" style="width:100%;height:auto;display:block">' +
+      v_kids(SLICE.call(arguments, 2)) + '</svg>';
+  }
+  function v_g(a) {
+    var parts = SLICE.call(arguments, 1);
+    if (!v_isObj(a)) { parts.unshift(a); a = null; }
+    return '<g' + v_attrs(null, a) + '>' + v_kids(parts) + '</g>';
+  }
+  function v_translate(x, y) {
+    return '<g transform="translate(' + v_r2(x) + ',' + v_r2(y) + ')">' + v_kids(SLICE.call(arguments, 2)) + '</g>';
+  }
+  function v_rect(x, y, w, h, a) {
+    if (w < 0) { x += w; w = -w; }
+    if (h < 0) { y += h; h = -h; }
+    return '<rect' + v_attrs({ x: x, y: y, width: w, height: h, fill: C.blue }, a, 'fill') + '/>';
+  }
+  function v_circle(cx, cy, r, a) { return '<circle' + v_attrs({ cx: cx, cy: cy, r: Math.abs(r), fill: C.blue }, a, 'fill') + '/>'; }
+  function v_line(x1, y1, x2, y2, a) {
+    return '<line' + v_attrs({ x1: x1, y1: y1, x2: x2, y2: y2, stroke: C.ink, 'stroke-width': 1.5 }, a, 'stroke') + '/>';
+  }
+  function v_pts(p) {
+    var s = [], i;
+    p = Array.isArray(p) ? p : [];
+    for (i = 0; i < p.length; i++) s.push(v_r2(p[i][0]) + ',' + v_r2(p[i][1]));
+    return s.join(' ');
+  }
+  function v_polyline(p, a) {
+    return '<polyline' + v_attrs({ points: v_pts(p), fill: 'none', stroke: C.blue, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, a, 'stroke') + '/>';
+  }
+  function v_polygon(p, a) { return '<polygon' + v_attrs({ points: v_pts(p), fill: C.blue }, a, 'fill') + '/>'; }
+  function v_path(d, a) { return '<path' + v_attrs({ d: d, fill: 'none', stroke: C.ink, 'stroke-width': 1.5 }, a, 'stroke') + '/>'; }
+  function v_text(x, y, s, a) {
+    var str = (s === undefined || s === null) ? '' : String(s), lines = str.split('\n'), body = '', i;
+    if (lines.length === 1) body = v_esc(str);
+    else for (i = 0; i < lines.length; i++) body += '<tspan x="' + v_r2(x) + '" dy="' + (i ? '1.25em' : '0') + '">' + v_esc(lines[i]) + '</tspan>';
+    return '<text' + v_attrs({ x: x, y: y, fill: C.ink, 'font-size': 13 }, a, 'fill') + '>' + body + '</text>';
+  }
+  function v_arrow(x1, y1, x2, y2, a) {
+    a = v_isObj(a) ? a : {};
+    var col = a.color || a.stroke || C.ink, sw = +(a.sw || a['stroke-width'] || 1.6), hs = +(a.head || (7 + 2 * sw));
+    var dx = x2 - x1, dy = y2 - y1, L = Math.sqrt(dx * dx + dy * dy);
+    if (L !== L) return v_line(x1, y1, x2, y2, a);
+    if (L === 0) return '';
+    var ux = dx / L, uy = dy / L, hl = Math.min(hs, L * 0.6), bx = x2 - ux * hl, by = y2 - uy * hl, px = -uy * hl * 0.45, py = ux * hl * 0.45;
+    return '<g>' + v_line(x1, y1, bx, by, a) + v_polygon([[x2, y2], [bx + px, by + py], [bx - px, by - py]], { fill: col, stroke: 'none', opacity: a.opacity }) + '</g>';
+  }
+  function v_box(x, y, w, h, label, a) {
+    a = v_isObj(a) ? a : {};
+    return '<g>' + v_rect(x, y, w, h, { fill: a.fill || '#eff6ff', stroke: a.stroke || a.color || C.blue, 'stroke-width': a.sw || 1.5, rx: a.rx === undefined ? 8 : a.rx, opacity: a.opacity }) +
+      ((label === undefined || label === null || label === '') ? '' : v_text(x + w / 2, y + h / 2, label, { anchor: 'middle', baseline: 'central', size: a.size || 13, weight: a.weight || 600, fill: a.textColor || C.ink })) + '</g>';
+  }
+  function v_node(cx, cy, r, label, a) {
+    a = v_isObj(a) ? a : {};
+    return '<g>' + v_circle(cx, cy, r, { fill: a.fill || '#eff6ff', stroke: a.stroke || a.color || C.blue, 'stroke-width': a.sw || 1.8, opacity: a.opacity }) +
+      ((label === undefined || label === null || label === '') ? '' : v_text(cx, cy, label, { anchor: 'middle', baseline: 'central', size: a.size || 13, weight: a.weight || 600, fill: a.textColor || C.ink })) + '</g>';
+  }
+  function v_legend(x, y, items, a) {
+    a = v_isObj(a) ? a : {};
+    var parts = [], i, it, yy, col, gap = a.gap || 18;
+    items = Array.isArray(items) ? items : [];
+    for (i = 0; i < items.length; i++) {
+      it = items[i] || {}; yy = y + i * gap; col = it.color || C.series[i % C.series.length];
+      if (it.dash || it.line) parts.push(v_line(x, yy, x + 16, yy, { stroke: col, 'stroke-width': 2.5, dash: it.dash }));
+      else parts.push(v_rect(x + 2, yy - 6, 12, 12, { fill: col, rx: 2 }));
+      parts.push(v_text(x + 22, yy, it.label === undefined ? '' : it.label, { size: a.size || 12, baseline: 'central' }));
+    }
+    return '<g>' + parts.join('') + '</g>';
+  }
+  function v_axes(o) {
+    o = v_isObj(o) ? o : {};
+    var x = v_num(o.x, 60), y = v_num(o.y, 30), w = v_num(o.w, 300), h = v_num(o.h, 200);
+    var xmin = v_num(o.xmin, 0), xmax = v_num(o.xmax, 1), ymin = v_num(o.ymin, 0), ymax = v_num(o.ymax, 1), t, i, px;
+    if (xmax < xmin) { t = xmin; xmin = xmax; xmax = t; }
+    if (ymax < ymin) { t = ymin; ymin = ymax; ymax = t; }
+    if (xmax === xmin) { xmin -= 0.5; xmax += 0.5; }
+    if (ymax === ymin) { ymin -= 0.5; ymax += 0.5; }
+    var sx = v_scale(xmin, xmax, x, x + w), sy = v_scale(ymin, ymax, y + h, y), parts = [];
+    var xt = Array.isArray(o.xticks) ? o.xticks : ((o.xticks === false || o.xticks === 0) ? [] : v_ticks(xmin, xmax, v_num(o.xticks, 6)));
+    var yt = Array.isArray(o.yticks) ? o.yticks : ((o.yticks === false || o.yticks === 0) ? [] : v_ticks(ymin, ymax, v_num(o.yticks, 5)));
+    var xd = v_tickDigits(xt), yd = v_tickDigits(yt), xl = Array.isArray(o.xtickLabels) ? o.xtickLabels : null;
+    parts.push(v_rect(x, y, w, h, { fill: '#ffffff', stroke: 'none' }));
+    for (i = 0; i < yt.length; i++) {
+      t = yt[i]; if (!(t >= ymin - 1e-12 && t <= ymax + 1e-12)) continue;
+      px = sy(t);
+      if (o.grid !== false) parts.push(v_line(x, px, x + w, px, { stroke: C.grid, 'stroke-width': 1 }));
+      parts.push(v_text(x - 8, px, typeof o.yfmt === 'function' ? o.yfmt(t) : v_fmt(t, yd), { anchor: 'end', baseline: 'central', size: 11, fill: C.muted }));
+    }
+    for (i = 0; i < xt.length; i++) {
+      t = xt[i]; if (!(t >= xmin - 1e-12 && t <= xmax + 1e-12)) continue;
+      px = sx(t);
+      if (o.grid !== false) parts.push(v_line(px, y, px, y + h, { stroke: C.grid, 'stroke-width': 1 }));
+      parts.push(v_text(px, y + h + 16, xl ? (xl[i] === undefined ? '' : xl[i]) : (typeof o.xfmt === 'function' ? o.xfmt(t) : v_fmt(t, xd)), { anchor: 'middle', size: 11, fill: C.muted }));
+    }
+    if (ymin < 0 && ymax > 0) parts.push(v_line(x, sy(0), x + w, sy(0), { stroke: C.axis, 'stroke-width': 1.2 }));
+    if (xmin < 0 && xmax > 0) parts.push(v_line(sx(0), y, sx(0), y + h, { stroke: C.axis, 'stroke-width': 1.2 }));
+    parts.push(v_line(x, y + h, x + w, y + h, { stroke: C.axis, 'stroke-width': 1.2 }));
+    parts.push(v_line(x, y, x, y + h, { stroke: C.axis, 'stroke-width': 1.2 }));
+    if (o.xlabel) parts.push(v_text(x + w / 2, y + h + 36, o.xlabel, { anchor: 'middle', size: 12.5 }));
+    if (o.ylabel) parts.push(v_text(0, 0, o.ylabel, { anchor: 'middle', size: 12.5, transform: 'translate(' + v_r2(x - v_num(o.ylabelOffset, 46)) + ',' + v_r2(y + h / 2) + ') rotate(-90)' }));
+    if (o.title) parts.push(v_text(x, y - 12, o.title, { size: 13.5, weight: 600 }));
+    return { svg: parts.join(''), sx: sx, sy: sy, x: x, y: y, w: w, h: h, xmin: xmin, xmax: xmax, ymin: ymin, ymax: ymax };
+  }
+  function v_ok(v) { return v !== null && v !== undefined && v !== '' && isFinite(v); }
+  function v_lineChart(o) {
+    o = v_isObj(o) ? o : {};
+    var S = Array.isArray(o.series) ? o.series : [], P = Array.isArray(o.points) ? o.points : [];
+    var xs = [], ys = [], i, j, s, n;
+    for (i = 0; i < S.length; i++) {
+      s = S[i] || {}; n = Math.min((s.xs || []).length, (s.ys || []).length);
+      for (j = 0; j < n; j++) if (v_ok(s.xs[j]) && v_ok(s.ys[j])) { xs.push(+s.xs[j]); ys.push(+s.ys[j]); }
+    }
+    for (i = 0; i < P.length; i++) if (P[i] && v_ok(P[i].x) && v_ok(P[i].y)) { xs.push(+P[i].x); ys.push(+P[i].y); }
+    var dxmin = xs.length ? Math.min.apply(null, xs) : 0, dxmax = xs.length ? Math.max.apply(null, xs) : 1;
+    var dymin = ys.length ? Math.min.apply(null, ys) : 0, dymax = ys.length ? Math.max.apply(null, ys) : 1;
+    var pad = (dymax - dymin) * 0.08 || 0.5;
+    var ax = v_axes({ x: o.x, y: o.y, w: o.w, h: o.h, xmin: v_num(o.xmin, dxmin), xmax: v_num(o.xmax, dxmax),
+      ymin: v_num(o.ymin, (dymin >= 0 && dymin - pad < 0) ? 0 : dymin - pad), ymax: v_num(o.ymax, dymax + pad),
+      xlabel: o.xlabel, ylabel: o.ylabel, title: o.title, xticks: o.xticks, yticks: o.yticks, xfmt: o.xfmt, yfmt: o.yfmt,
+      grid: o.grid, xtickLabels: o.xtickLabels, ylabelOffset: o.ylabelOffset });
+    var cid = 'clip' + Math.round(ax.x) + '_' + Math.round(ax.y) + '_' + Math.round(ax.w) + '_' + Math.round(ax.h);
+    var body = [], top = [], HL = Array.isArray(o.hlines) ? o.hlines : [], VL = Array.isArray(o.vlines) ? o.vlines : [], q, col;
+    for (i = 0; i < HL.length; i++) {
+      if (!HL[i]) continue; q = ax.sy(HL[i].y); col = HL[i].color || C.muted;
+      body.push(v_line(ax.x, q, ax.x + ax.w, q, { stroke: col, 'stroke-width': 1.2, dash: '5 4' }));
+      if (HL[i].label) top.push(v_text(ax.x + ax.w - 4, q - 5, HL[i].label, { anchor: 'end', size: 11, fill: col }));
+    }
+    for (i = 0; i < VL.length; i++) {
+      if (!VL[i]) continue; q = ax.sx(VL[i].x); col = VL[i].color || C.muted;
+      body.push(v_line(q, ax.y, q, ax.y + ax.h, { stroke: col, 'stroke-width': 1.2, dash: '5 4' }));
+      if (VL[i].label) top.push(v_text(q + 4, ax.y + 12, VL[i].label, { size: 11, fill: col }));
+    }
+    for (i = 0; i < S.length; i++) {
+      s = S[i] || {}; col = s.color || C.series[i % C.series.length];
+      var run = [], runs = [], m = Math.min((s.xs || []).length, (s.ys || []).length), k;
+      for (j = 0; j < m; j++) {
+        if (v_ok(s.xs[j]) && v_ok(s.ys[j])) run.push([ax.sx(+s.xs[j]), ax.sy(+s.ys[j])]);
+        else { if (run.length) runs.push(run); run = []; }
+      }
+      if (run.length) runs.push(run);
+      for (j = 0; j < runs.length; j++) {
+        if (runs[j].length > 1) body.push(v_polyline(runs[j], { stroke: col, 'stroke-width': v_num(s.width, 2.4), dash: s.dash, opacity: s.opacity }));
+        if (s.markers || runs[j].length === 1) for (k = 0; k < runs[j].length; k++) body.push(v_circle(runs[j][k][0], runs[j][k][1], 3.2, { fill: col }));
+      }
+    }
+    for (i = 0; i < P.length; i++) {
+      var pt = P[i] || {}, pc = pt.color || C.red;
+      if (!(v_ok(pt.x) && v_ok(pt.y))) { top.push(v_text(ax.x + 6, ax.y + 14 + 14 * i, 'point ' + (pt.label || i) + ': ' + pt.x + ', ' + pt.y, { size: 11, fill: C.red })); continue; }
+      body.push(v_circle(ax.sx(+pt.x), ax.sy(+pt.y), v_num(pt.r, 5.5), { fill: pc, stroke: '#ffffff', 'stroke-width': 1.5 }));
+      if (pt.label !== undefined && pt.label !== '') top.push(v_text(ax.sx(+pt.x) + 8, ax.sy(+pt.y) - 8, pt.label, { size: 12, weight: 600, fill: pc }));
+    }
+    var named = [], legend = '', lw = 0;
+    for (i = 0; i < S.length; i++) if (S[i] && S[i].label) named.push({ label: S[i].label, color: S[i].color || C.series[i % C.series.length], dash: S[i].dash, line: true });
+    if (o.legend !== false && named.length && (named.length > 1 || o.legend)) {
+      for (i = 0; i < named.length; i++) lw = Math.max(lw, String(named[i].label).length);
+      var lx = (v_isObj(o.legend) && v_ok(o.legend.x)) ? o.legend.x : ax.x + ax.w - (lw * 6.6 + 34);
+      var ly = (v_isObj(o.legend) && v_ok(o.legend.y)) ? o.legend.y : ax.y + 14;
+      legend = v_rect(lx - 6, ly - 11, lw * 6.6 + 36, named.length * 18 + 4, { fill: '#ffffff', opacity: 0.88, rx: 6 }) + v_legend(lx, ly, named);
+    }
+    return ax.svg + '<defs><clipPath id="' + cid + '"><rect x="' + v_r2(ax.x - 6) + '" y="' + v_r2(ax.y - 6) + '" width="' + v_r2(ax.w + 12) + '" height="' + v_r2(ax.h + 12) +
+      '"/></clipPath></defs><g clip-path="url(#' + cid + ')">' + body.join('') + '</g>' + top.join('') + legend;
+  }
+  function v_barChart(o) {
+    o = v_isObj(o) ? o : {};
+    var labels = Array.isArray(o.labels) ? o.labels : [], S = Array.isArray(o.series) ? o.series : [{ values: Array.isArray(o.values) ? o.values : [], label: o.label, color: o.color }];
+    var ns = Math.max(1, S.length), n = labels.length, i, k, vals = [], sv;
+    for (k = 0; k < S.length; k++) { sv = (S[k] && S[k].values) || []; n = Math.max(n, sv.length); for (i = 0; i < sv.length; i++) if (v_ok(sv[i])) vals.push(+sv[i]); }
+    var dmin = vals.length ? Math.min.apply(null, vals) : 0, dmax = vals.length ? Math.max.apply(null, vals) : 1;
+    var ymin = v_num(o.ymin, Math.min(0, dmin)), ymax = v_num(o.ymax, Math.max(0, dmax));
+    if (o.ymax === undefined) ymax = ymax + ((ymax - ymin) * 0.14 || 1);
+    if (o.ymin === undefined && ymin < 0) ymin = ymin - (ymax - ymin) * 0.1;
+    var ax = v_axes({ x: o.x, y: o.y, w: o.w, h: o.h, xmin: 0, xmax: Math.max(1, n), ymin: ymin, ymax: ymax, xticks: false, yticks: o.yticks,
+      ylabel: o.ylabel, xlabel: o.xlabel, title: o.title, yfmt: o.yfmt, grid: o.grid, ylabelOffset: o.ylabelOffset });
+    var band = ax.w / Math.max(1, n), inner = band * (1 - v_num(o.gap, 0.28)), bw = inner / ns;
+    var base = ax.sy(Math.max(ax.ymin, Math.min(ax.ymax, 0))), parts = [ax.svg], d = o.digits === undefined ? 2 : o.digits;
+    var showVals = o.valueLabels !== false && n * ns <= 24, hl = Array.isArray(o.highlight) ? o.highlight : ((o.highlight === undefined || o.highlight === null) ? [] : [o.highlight]);
+    for (i = 0; i < n; i++) {
+      var x0 = ax.x + band * i + (band - inner) / 2;
+      for (k = 0; k < ns; k++) {
+        var vv = ((S[k] && S[k].values) || [])[i], bx = x0 + bw * k, cx = bx + bw / 2;
+        if (vv === undefined || vv === null) continue;
+        if (!isFinite(vv)) { parts.push(v_text(cx, base - 6, String(vv), { anchor: 'middle', size: 11, fill: C.red })); continue; }
+        vv = +vv;
+        var col = (Array.isArray(o.colors) && o.colors[i]) || (S[k] && S[k].color) || (ns > 1 ? C.series[k % C.series.length] : C.blue);
+        var topY = ax.sy(Math.max(ax.ymin, Math.min(ax.ymax, vv))), isHl = hl.indexOf(i) >= 0;
+        parts.push(v_rect(bx + 1, Math.min(topY, base), Math.max(1, bw - 2), Math.abs(base - topY), { fill: col, rx: 2, opacity: (hl.length && !isHl) ? 0.45 : 1, stroke: isHl ? C.ink : 'none', 'stroke-width': isHl ? 2 : 0 }));
+        if (showVals) parts.push(v_text(cx, vv >= 0 ? topY - 5 : topY + 13, v_fmt(vv, d), { anchor: 'middle', size: 11 }));
+      }
+      if (labels[i] !== undefined) parts.push(v_text(ax.x + band * (i + 0.5), ax.y + ax.h + 16, labels[i], { anchor: 'middle', size: 11.5 }));
+    }
+    if (ns > 1) {
+      var items = [];
+      for (k = 0; k < ns; k++) if (S[k] && S[k].label) items.push({ label: S[k].label, color: S[k].color || C.series[k % C.series.length] });
+      if (items.length) parts.push(v_legend(ax.x + ax.w - 120, ax.y + 12, items));
+    }
+    return parts.join('');
+  }
+  function v_heatmap(o) {
+    o = v_isObj(o) ? o : {};
+    var M = Array.isArray(o.matrix) ? o.matrix : [], R = M.length, K = 0, i, j, v;
+    var x = v_num(o.x, 60), y = v_num(o.y, 40), w = v_num(o.w, 240), h = v_num(o.h, 160), flat = [];
+    for (i = 0; i < R; i++) { K = Math.max(K, (M[i] || []).length); for (j = 0; j < (M[i] || []).length; j++) if (v_ok(M[i][j])) flat.push(+M[i][j]); }
+    if (!R || !K) return v_text(x, y + 14, '(empty matrix)', { fill: C.muted });
+    var lo = v_num(o.min, flat.length ? Math.min.apply(null, flat) : 0), hi = v_num(o.max, flat.length ? Math.max.apply(null, flat) : 1);
+    var cw = w / K, ch = h / R, d = o.digits === undefined ? 2 : o.digits, parts = [], rl = o.rowLabels || [], cl = o.colLabels || [];
+    var fs = Math.max(9, Math.min(13, ch * 0.42, cw / 3.4)), hlist = Array.isArray(o.highlight) ? o.highlight : [];
+    if (o.title) parts.push(v_text(x, y - (cl.length ? 26 : 10), o.title, { size: 13.5, weight: 600 }));
+    for (i = 0; i < R; i++) {
+      for (j = 0; j < K; j++) {
+        v = (M[i] || [])[j];
+        var fill = !v_ok(v) ? '#fee2e2' : (o.diverging ? v_div(+v, Math.max(Math.abs(lo), Math.abs(hi))) : v_heat(+v, lo, hi));
+        parts.push(v_rect(x + j * cw, y + i * ch, cw, ch, { fill: fill, stroke: '#ffffff', 'stroke-width': 1.5 }));
+        if (o.showValues !== false && cw >= 24 && ch >= 15) parts.push(v_text(x + (j + 0.5) * cw, y + (i + 0.5) * ch, typeof v === 'number' ? v_fmt(v, d) : String(v), { anchor: 'middle', baseline: 'central', size: fs, fill: v_ink(fill) }));
+      }
+      if (rl[i] !== undefined) parts.push(v_text(x - 8, y + (i + 0.5) * ch, rl[i], { anchor: 'end', baseline: 'central', size: 12 }));
+    }
+    for (j = 0; j < K; j++) if (cl[j] !== undefined) parts.push(v_text(x + (j + 0.5) * cw, y - 8, cl[j], { anchor: 'middle', size: 12 }));
+    for (i = 0; i < hlist.length; i++) if (Array.isArray(hlist[i])) parts.push(v_rect(x + hlist[i][1] * cw + 1, y + hlist[i][0] * ch + 1, cw - 2, ch - 2, { fill: 'none', stroke: C.ink, 'stroke-width': 2.5 }));
+    return parts.join('');
+  }
+  return {
+    c: C, esc: v_esc, fmt: v_fmt, scale: v_scale, linspace: v_linspace, range: v_range, ticks: v_ticks,
+    mix: v_mix, heat: v_heat, div: v_div, ink: v_ink, svg: v_svg, g: v_g, translate: v_translate, rect: v_rect,
+    circle: v_circle, line: v_line, arrow: v_arrow, path: v_path, polyline: v_polyline, polygon: v_polygon,
+    text: v_text, box: v_box, node: v_node, legend: v_legend, axes: v_axes, lineChart: v_lineChart,
+    barChart: v_barChart, heatmap: v_heatmap, setPalette: v_setPalette
+  };
+})();
+
+var P2P = (function () {
+  'use strict';
+  var HAS = Object.prototype.hasOwnProperty;
+  function p2p_num(v, d) { var n = typeof v === 'number' ? v : parseFloat(v); return isFinite(n) ? n : d; }
+  function p2p_dim(spec, q, fallback) {
+    var n = typeof spec === 'string' ? q[spec] : spec;
+    return Math.max(1, Math.min(16, Math.round(p2p_num(n, fallback))));
+  }
+  function p2p_fill(c) {
+    if (typeof c.fill === 'number' && isFinite(c.fill)) return c.fill;
+    var lo = p2p_num(c.min, 0), hi = p2p_num(c.max, 0);
+    return (lo <= 0 && hi >= 0) ? 0 : lo;
+  }
+  function p2p_vec(a, n, fill, dflt) {
+    var out = [], i, v;
+    for (i = 0; i < n; i++) {
+      v = (Array.isArray(a) && i < a.length) ? p2p_num(a[i], NaN) : NaN;
+      if (!isFinite(v)) v = (Array.isArray(dflt) && i < dflt.length && isFinite(dflt[i])) ? +dflt[i] : fill;
+      out.push(v);
+    }
+    return out;
+  }
+  function p2p_normalize(C, p) {
+    p = p || {};
+    var q = {}, i, k, c, v, opts, hit;
+    for (i = 0; i < C.length; i++) {
+      c = C[i];
+      if (c.type === 'vector' || c.type === 'matrix') continue;
+      v = HAS.call(p, c.id) ? p[c.id] : c.value;
+      if (c.type === 'slider' || c.type === 'number') q[c.id] = p2p_num(v, p2p_num(c.value, 0));
+      else if (c.type === 'toggle') q[c.id] = (v === true || v === 'true' || v === 1);
+      else if (c.type === 'select') {
+        opts = c.options || []; hit = null;
+        for (k = 0; k < opts.length; k++) if (String(opts[k].value) === String(v)) hit = opts[k].value;
+        q[c.id] = hit !== null ? hit : c.value;
+      } else q[c.id] = v;
+    }
+    for (i = 0; i < C.length; i++) {
+      c = C[i];
+      v = HAS.call(p, c.id) ? p[c.id] : c.value;
+      if (c.type === 'vector') {
+        var dv = Array.isArray(c.value) ? c.value : [];
+        q[c.id] = p2p_vec(v, p2p_dim(c.length, q, dv.length || 1), p2p_fill(c), dv);
+      } else if (c.type === 'matrix') {
+        var dm = Array.isArray(c.value) ? c.value : [], R = p2p_dim(c.rows, q, dm.length || 1);
+        var K = p2p_dim(c.cols, q, (dm[0] || []).length || 1), rows = [], r;
+        for (r = 0; r < R; r++) rows.push(p2p_vec(Array.isArray(v) ? v[r] : null, K, p2p_fill(c), dm[r]));
+        q[c.id] = rows;
+      }
+    }
+    return q;
+  }
+  function p2p_defaults(C) { return p2p_normalize(C, {}); }
+  function p2p_merge(C, base, over, exact) {
+    var p = {}, k, i, c;
+    for (k in base) if (HAS.call(base, k)) p[k] = base[k];
+    if (over) for (k in over) if (HAS.call(over, k)) p[k] = over[k];
+    /* A preset/test that gives a whole vector or matrix but not its size slider means "use this size":
+       set the slider from the array instead of padding/truncating the array to the old size. */
+    var bySize = function (sizeId, n) {
+      if (typeof sizeId === 'string' && over && !HAS.call(over, sizeId) && n > 0) p[sizeId] = n;
+    };
+    for (i = 0; over && i < C.length; i++) {
+      c = C[i];
+      if (!HAS.call(over, c.id) || !Array.isArray(over[c.id])) continue;
+      if (c.type === 'vector') bySize(c.length, over[c.id].length);
+      else if (c.type === 'matrix') {
+        bySize(c.rows, over[c.id].length);
+        if (Array.isArray(over[c.id][0])) bySize(c.cols, over[c.id][0].length);
+      }
+    }
+    var q = p2p_normalize(C, JSON.parse(JSON.stringify(p)));
+    /* exact (TESTS only): a fixed-size vector/matrix given with another size is used as given, because padding
+       a test's data with zeros changes the maths it checks. Presets stay UI-reachable and are never exact. */
+    for (i = 0; exact && over && i < C.length; i++) {
+      c = C[i];
+      if (!HAS.call(over, c.id) || !Array.isArray(over[c.id]) || !over[c.id].length) continue;
+      if (c.type === 'vector' && typeof c.length !== 'string') q[c.id] = p2p_vec(over[c.id], Math.min(over[c.id].length, 64), p2p_fill(c), null);
+      else if (c.type === 'matrix' && typeof c.rows !== 'string' && typeof c.cols !== 'string' && Array.isArray(over[c.id][0])) {
+        q[c.id] = over[c.id].slice(0, 64).map(function (row) { return p2p_vec(row, Math.min(row.length, 64), p2p_fill(c), null); });
+      }
+    }
+    return q;
+  }
+  return { normalize: p2p_normalize, defaults: p2p_defaults, merge: p2p_merge };
+})();
+</script>
+<script>window.__P2P_SPEC__ = {"controls": [{"type": "matrix", "id": "Q", "label": "Queries Q (rows = queries, cols = dₖ)", "rows": 2, "cols": 3, "min": -5, "max": 5, "step": 0.5, "fill": 0, "value": [[1, 0, 1], [0, 1, 0]], "row_labels": ["q₁", "q₂"], "col_labels": ["1", "2", "3"]}, {"type": "matrix", "id": "K", "label": "Keys K (rows = keys, cols = dₖ)", "rows": 3, "cols": 3, "min": -5, "max": 5, "step": 0.5, "fill": 0, "value": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "row_labels": ["k₁", "k₂", "k₃"], "col_labels": ["1", "2", "3"]}, {"type": "matrix", "id": "V", "label": "Values V (rows = keys, cols = dᵥ)", "rows": 3, "cols": 2, "min": -5, "max": 5, "step": 0.5, "fill": 0, "value": [[1, 0], [0, 1], [1, 1]], "row_labels": ["v₁", "v₂", "v₃"], "col_labels": ["1", "2"]}, {"type": "toggle", "id": "scaled", "label": "Divide scores by √dₖ", "help": "Turn off to see unscaled dot-product attention.", "value": true}, {"type": "slider", "id": "gain", "label": "Score gain (multiplies QKᵀ)", "help": "Emulates a larger dₖ: bigger scores, sharper softmax.", "min": 0.5, "max": 8, "step": 0.5, "value": 1}], "explorations": [{"title": "All-equal scores give uniform weights", "preset": {"Q": [[1, 1, 1], [1, 1, 1]], "K": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "V": [[1, 0], [0, 1], [1, 1]], "scaled": true, "gain": 1}}, {"title": "One dominant score concentrates the weight", "preset": {"Q": [[3, 0, 0], [0, 0, 0]], "K": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "V": [[1, 0], [0, 1], [1, 1]], "scaled": true, "gain": 1}}]};</script>
+<script>var MODEL = (function (V, P2P) {
+function softmaxRow(s){const m=Math.max(...s);const e=s.map(v=>Math.exp(v-m));const z=e.reduce((a,b)=>a+b,0);return e.map(v=>v/z);}
+function compute(p){
+  const Q=p.Q,K=p.K,V=p.V,nq=Q.length,nk=K.length,dk=Q[0].length,dv=V[0].length;
+  const S=[],Sc=[],A=[],O=[];
+  const scale=p.scaled?1/Math.sqrt(dk):1;
+  for(let i=0;i<nq;i++){const sr=[],cr=[];
+    for(let j=0;j<nk;j++){let d=0;for(let c=0;c<dk;c++)d+=Q[i][c]*K[j][c];sr.push(d);cr.push(d*scale*p.gain);}
+    S.push(sr);Sc.push(cr);A.push(softmaxRow(cr));}
+  for(let i=0;i<nq;i++){const o=[];for(let c=0;c<dv;c++){let s=0;for(let j=0;j<nk;j++)s+=A[i][j]*V[j][c];o.push(s);}O.push(o);}
+  const rowSums=A.map(r=>r.reduce((a,b)=>a+b,0));
+  const maxW=A.map(r=>Math.max(...r));
+  const maxAbs=Math.max(1e-9,...Sc.flat().map(Math.abs));
+  const degenerate=Sc.some(r=>r.some(v=>!isFinite(v)));
+  return {S,Sc,A,O,rowSums,maxW,dk,dv,nq,nk,scale,maxAbs,degenerate};
+}
+function view(p,r){
+  const W=760,H=430;
+  const parts=[];
+  const hx=70,hy=70,hw=250,hh=150;
+  parts.push(V.text(hx,hy-14,"Scores "+((p.scaled)?"QKᵀ/√dₖ":"QKᵀ")+" (×gain)",{size:13,weight:"bold",anchor:"start"}));
+  parts.push(V.heatmap({x:hx,y:hy,w:hw,h:hh,matrix:r.Sc,rowLabels:V.range(r.nq).map(i=>"q"+(i+1)),colLabels:V.range(r.nk).map(j=>"k"+(j+1)),min:-r.maxAbs,max:r.maxAbs,diverging:true,digits:2}));
+  const bx=430,by=70,bw=280,bh=150;
+  parts.push(V.text(bx,by-14,"Attention weights A (rows sum to 1)",{size:13,weight:"bold",anchor:"start"}));
+  const labels=[],vals=[],cols=[];
+  for(let i=0;i<r.nq;i++)for(let j=0;j<r.nk;j++){labels.push("q"+(i+1)+"k"+(j+1));vals.push(r.A[i][j]);cols.push(V.c.series[i%V.c.series.length]);}
+  parts.push(V.barChart({x:bx,y:by,w:bw,h:bh,labels,values:vals,colors:cols,ymin:0,ymax:1,ylabel:"weight",digits:2}));
+  const ox=70,oy=290,ow=250,oh=110;
+  parts.push(V.text(ox,oy-14,"Output AV",{size:13,weight:"bold",anchor:"start"}));
+  const ol=[],ov=[],oc=[];
+  for(let i=0;i<r.nq;i++)for(let c=0;c<r.dv;c++){ol.push("q"+(i+1)+"·"+(c+1));ov.push(r.O[i][c]);oc.push(V.c.series[i%V.c.series.length]);}
+  const omin=Math.min(0,...ov),omax=Math.max(0,...ov);
+  parts.push(V.barChart({x:ox,y:oy,w:ow,h:oh,labels:ol,values:ov,colors:oc,ymin:omin,ymax:omax===omin?omin+1:omax,ylabel:"value",digits:2}));
+  const mx=430,my=290,mw=280,mh=110;
+  parts.push(V.text(mx,my-14,"Largest weight per query",{size:13,weight:"bold",anchor:"start"}));
+  parts.push(V.barChart({x:mx,y:my,w:mw,h:mh,labels:V.range(r.nq).map(i=>"q"+(i+1)),values:r.maxW,colors:V.range(r.nq).map(i=>V.c.series[i%V.c.series.length]),ymin:0,ymax:1,ylabel:"max weight",digits:3}));
+  return V.svg(W,H,...parts);
+}
+function readout(p,r){
+  const rows=[];
+  for(let i=0;i<r.nq;i++)rows.push(["q"+(i+1),r.S[i].map(v=>V.fmt(v,2)).join(", "),r.Sc[i].map(v=>V.fmt(v,2)).join(", "),r.A[i].map(v=>V.fmt(v,3)).join(", "),V.fmt(r.rowSums[i],3)]);
+  const out=[];
+  out.push({label:"dₖ (key dimension)",value:r.dk});
+  out.push({label:"scale 1/√dₖ",value:V.fmt(r.scale,4),formula:p.scaled?"1/√"+r.dk:"1 (scaling off)"});
+  out.push({label:"gain",value:V.fmt(p.gain,2)});
+  out.push({table:{title:"Scores → scaled scores → weights (per query)",headers:["query","QKᵀ","scaled","A","row sum"],rows}});
+  for(let i=0;i<r.nq;i++)out.push({label:"output row q"+(i+1),value:r.O[i].map(v=>V.fmt(v,3)).join(", "),formula:"Σⱼ A["+(i+1)+",j]·V[j]"});
+  out.push({label:"max weight (all queries)",value:V.fmt(Math.max(...r.maxW),3)});
+  if(r.degenerate)out.push({label:"warning",value:"non-finite scores"});
+  return out;
+}
+function insight(p,r){
+  const m=Math.max(...r.maxW);
+  const sharp=m>0.9?"very sharp — the softmax is nearly a hard pick, the low-gradient regime the paper warns about":m>0.6?"moderately concentrated":"fairly uniform";
+  return "With scaling "+(p.scaled?"on":"off")+" and gain "+V.fmt(p.gain,2)+", the largest attention weight is "+V.fmt(m,3)+" ("+sharp+"); every row of A sums to 1.";
+}
+const TESTS=[
+  {name:"rows of A sum to 1",params:{},check:(r)=>r.rowSums.every(s=>Math.abs(s-1)<1e-9)},
+  {name:"output equals weighted sum of V rows",params:{},check:(r,p)=>{for(let i=0;i<r.nq;i++)for(let c=0;c<r.dv;c++){let s=0;for(let j=0;j<r.nk;j++)s+=r.A[i][j]*p.V[j][c];if(Math.abs(s-r.O[i][c])>1e-9*Math.max(1,Math.abs(s)))return false;}return true;}},
+  {name:"equal scores give uniform weights 1/n",params:{Q:[[1,1,1],[1,1,1]],K:[[1,0,0],[0,1,0],[0,0,1]],V:[[1,0],[0,1],[1,1]],scaled:true,gain:1},check:(r)=>r.A.every(row=>row.every(w=>Math.abs(w-1/r.nk)<1e-9))},
+  {name:"scaling off leaves uniform weights unchanged",params:{Q:[[1,1,1],[1,1,1]],K:[[1,0,0],[0,1,0],[0,0,1]],V:[[1,0],[0,1],[1,1]],scaled:false,gain:1},check:(r)=>r.A.every(row=>row.every(w=>Math.abs(w-1/r.nk)<1e-9))},
+  {name:"dominant score at gain 8 approaches weight 1",params:{Q:[[3,0,0],[0,0,0]],K:[[1,0,0],[0,1,0],[0,0,1]],V:[[1,0],[0,1],[1,1]],scaled:true,gain:8},check:(r)=>r.A[0][0]>0.99}
+];
+const INVARIANTS=[
+  {name:"each row of A sums to 1",check:(r)=>r.rowSums.every(s=>Math.abs(s-1)<1e-9)},
+  {name:"all weights in [0,1]",check:(r)=>r.A.every(row=>row.every(w=>w>=0&&w<=1))},
+  {name:"output is a convex combination of V rows",check:(r,p)=>{for(let c=0;c<r.dv;c++){const col=p.V.map(v=>v[c]);const lo=Math.min(...col),hi=Math.max(...col);for(let i=0;i<r.nq;i++){if(r.O[i][c]<lo-1e-9||r.O[i][c]>hi+1e-9)return false;}}return true;}}
+];
+;return {compute: typeof compute === 'function' ? compute : null, view: typeof view === 'function' ? view : null, readout: typeof readout === 'function' ? readout : null, insight: typeof insight === 'function' ? insight : null, tests: (typeof TESTS !== 'undefined' && Array.isArray(TESTS)) ? TESTS : [], invariants: (typeof INVARIANTS !== 'undefined' && Array.isArray(INVARIANTS)) ? INVARIANTS : []};
+})(V, P2P);
+</script>
+<script>/* Paper-to-Playground page runtime (generic; nothing paper-specific). Builds the controls described in SPEC,
+ * re-runs the generated compute/view/readout/insight and live INVARIANTS on every change, loads exploration
+ * presets, applies zero-token reader settings and re-runs the generated TESTS in the browser. */
+(function () {
+  'use strict';
+  var SPEC = window.__P2P_SPEC__ || { controls: [], explorations: [] };
+  var C = Array.isArray(SPEC.controls) ? SPEC.controls : [];
+  var M = (typeof MODEL !== 'undefined' && MODEL) ? MODEL : null;
+  var READY = !!(M && typeof M.compute === 'function' && typeof M.view === 'function');
+  var TAG = /&lt;(\/?)(sub|sup|i|b|em|strong|code|br)\s*\/?&gt;/gi;
+  var state = P2P.defaults(C), deps = {}, raf = 0, prevVals = {};
+  C.forEach(function (c) {
+    ['length', 'rows', 'cols'].forEach(function (k) { if (typeof c[k] === 'string') (deps[c[k]] = deps[c[k]] || []).push(c); });
+  });
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function rich(s) { return esc(s === undefined || s === null ? '' : s).replace(TAG, function (m, sl, t) { return '<' + sl + t.toLowerCase() + '>'; }); }
+  function plain(s) { return String(s === undefined || s === null ? '' : s).replace(/<[^>]*>/g, ''); }
+  function clone(x) { return JSON.parse(JSON.stringify(x)); }
+  function isNum(x) { return typeof x === 'number' && isFinite(x); }
+  function numOf(s) { var m = String(s).replace(/\u2212/g, '-').match(/-?\d+(\.\d+)?(e[-+]?\d+)?/i); return m ? parseFloat(m[0]) : NaN; }
+  function decimals(c) {
+    var s = String(c.step === undefined ? '' : c.step), i;
+    if (s.indexOf('e-') >= 0) return Math.min(8, parseInt(s.split('e-')[1], 10) || 3);
+    i = s.indexOf('.');
+    return i < 0 ? 0 : Math.min(8, s.length - i - 1);
+  }
+  function show(c, v) { return isNum(v) ? v.toFixed(decimals(c)) : String(v); }
+  function clamp(c, v) { if (isNum(c.min) && v < c.min) v = c.min; if (isNum(c.max) && v > c.max) v = c.max; return v; }
+  function el(tag, attrs, html) {
+    var e = document.createElement(tag), k;
+    if (attrs) for (k in attrs) if (attrs[k] !== undefined && attrs[k] !== null) e.setAttribute(k, attrs[k]);
+    if (html !== undefined) e.innerHTML = html;
+    return e;
+  }
+  function fmtVal(v) { return typeof v === 'number' ? V.fmt(v, 4) : (v === undefined || v === null ? '\u2014' : String(v)); }
+  function showError(msg) { var b = $('p2p-error'); b.textContent = msg; b.hidden = false; }
+  function hideError() { var b = $('p2p-error'); if (!b.hidden) { b.hidden = true; b.textContent = ''; } }
+  function setStatus(msg) { var s = $('p2p-status'); s.textContent = msg || ''; s.hidden = !msg; }
+  function val(id, d) { var e = $(id); if (!e) return d; return e.type === 'checkbox' ? e.checked : e.value; }
+
+  var REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var TWEEN = ['x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry', 'x1', 'y1', 'x2', 'y2', 'opacity', 'stroke-width'];
+  var NUMS = /-?\d*\.?\d+(?:e[-+]?\d+)?/gi;
+  /* Morph the new SVG from the previous one: when the drawing has the same structure (the usual case when a
+     control moves), numeric geometry is interpolated so bars grow, points glide and lines bend smoothly. */
+  function tweenSvg(oldSvg, host) {
+    var nu = host.querySelector('svg');
+    if (REDUCED || !oldSvg || !nu) return;
+    var a = oldSvg.querySelectorAll('*'), b = nu.querySelectorAll('*'), jobs = [], i, k, f, t, ka, kb;
+    if (a.length !== b.length || a.length > 5000) return;
+    for (i = 0; i < a.length; i++) {
+      if (a[i].tagName !== b[i].tagName) return;
+      for (k = 0; k < TWEEN.length; k++) {
+        f = parseFloat(a[i].getAttribute(TWEEN[k])); t = parseFloat(b[i].getAttribute(TWEEN[k]));
+        if (isFinite(f) && isFinite(t) && f !== t) jobs.push({ e: b[i], k: TWEEN[k], f: f, t: t });
+      }
+      ka = a[i].getAttribute('d') !== null ? 'd' : (a[i].getAttribute('points') !== null ? 'points' : null);
+      if (ka) {
+        var sa = a[i].getAttribute(ka), sb = b[i].getAttribute(ka), na = sa.match(NUMS) || [], nb = sb.match(NUMS) || [];
+        kb = sb.replace(NUMS, '#');
+        if (na.length === nb.length && na.length && sa.replace(NUMS, '#') === kb && sa !== sb) jobs.push({ e: b[i], k: ka, path: kb, f: na.map(Number), t: nb.map(Number) });
+      }
+    }
+    if (!jobs.length) return;
+    var t0 = 0, dur = 260;
+    function frame(ts) {
+      if (!t0) t0 = ts;
+      var p = Math.min(1, (ts - t0) / dur), q = 1 - Math.pow(1 - p, 3), j, J, n;
+      for (j = 0; j < jobs.length; j++) {
+        J = jobs[j];
+        if (J.path) { n = 0; J.e.setAttribute(J.k, J.path.replace(/#/g, function () { var v = J.f[n] + (J.t[n] - J.f[n]) * q; n++; return Math.round(v * 100) / 100; })); }
+        else J.e.setAttribute(J.k, J.f + (J.t - J.f) * q);
+      }
+      if (p < 1 && host.contains(nu)) window.requestAnimationFrame(frame);
+    }
+    window.requestAnimationFrame(frame);
+  }
+  /* Generated drawings sometimes place a label outside the canvas or on top of another label. After every draw:
+     (1) grow the viewBox to include everything drawn, so nothing is cut off; (2) push colliding labels apart;
+     (3) give dark labels a paper-coloured halo so they stay legible over lines and cells. Zero tokens. */
+  function tidySvg(host) {
+    var svg = host.querySelector('svg');
+    if (!svg || !svg.getBBox) return;
+    var vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number), texts, boxes = [], i, j, pass, moved;
+    texts = svg.querySelectorAll('text');
+    for (i = 0; i < texts.length; i++) {
+      var f = texts[i].getAttribute('fill') || getComputedStyle(texts[i]).fill || '';
+      var rgb = (String(f).match(/\d+/g) || []).map(Number), dark = true;
+      if (/^#/.test(f)) { var hx = f.replace('#', ''); if (hx.length === 3) hx = hx.replace(/(.)/g, '$1$1'); rgb = [0, 2, 4].map(function (k) { return parseInt(hx.substr(k, 2), 16); }); }
+      if (rgb.length >= 3) dark = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) < 140;
+      if (/^(white|#fff|#ffffff)$/i.test(f)) dark = false;
+      if (dark) texts[i].classList.add('halo');
+    }
+    try {
+      for (i = 0; i < texts.length; i++) {
+        if (texts[i].getAttribute('transform') || (texts[i].parentNode && texts[i].parentNode.getAttribute && /rotate/.test(texts[i].parentNode.getAttribute('transform') || ''))) continue;
+        var b = texts[i].getBBox();
+        if (b.width > 0) boxes.push({ e: texts[i], x: b.x, y: b.y, w: b.width, h: b.height, dy: 0 });
+      }
+      // Move the wider label of a colliding pair (annotations, not short tick numbers), away from the other one.
+      for (pass = 0; pass < 10; pass++) {
+        moved = false;
+        for (i = 0; i < boxes.length; i++) for (j = i + 1; j < boxes.length; j++) {
+          var A = boxes[i], B = boxes[j];
+          var ox = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x), oy = Math.min(A.y + A.dy + A.h, B.y + B.dy + B.h) - Math.max(A.y + A.dy, B.y + B.dy);
+          if (ox > 1.5 && oy > 1.5) {
+            var mv = A.w > B.w ? A : B, st = mv === A ? B : A;
+            if (Math.abs(mv.dy) >= 34) { mv = st; st = mv === A ? B : A; }
+            if (Math.abs(mv.dy) >= 34) continue;
+            mv.dy += (mv.y + mv.dy + mv.h / 2 >= st.y + st.dy + st.h / 2) ? oy + 1 : -(oy + 1);
+            moved = true;
+          }
+        }
+        if (!moved) break;
+      }
+      boxes.forEach(function (bx) { if (bx.dy) bx.e.setAttribute('transform', 'translate(0 ' + Math.round(bx.dy * 10) / 10 + ')'); });
+      if (vb.length === 4 && vb.every(isFinite)) {
+        var bb = svg.getBBox(), pad = 6, x0 = Math.min(vb[0], bb.x - pad), y0 = Math.min(vb[1], bb.y - pad);
+        var x1 = Math.max(vb[0] + vb[2], bb.x + bb.width + pad), y1 = Math.max(vb[1] + vb[3], bb.y + bb.height + pad);
+        if (x0 < vb[0] || y0 < vb[1] || x1 > vb[0] + vb[2] || y1 > vb[1] + vb[3]) svg.setAttribute('viewBox', [x0, y0, x1 - x0, y1 - y0].map(function (v) { return Math.round(v); }).join(' '));
+      }
+    } catch (e) { /* getBBox can fail on hidden SVGs: tidying is cosmetic */ }
+  }
+  /* Shareable state: the playground state lives in the URL hash (#s=...), so a link reproduces exactly what you see. */
+  function stateHash() { try { return 's=' + encodeURIComponent(JSON.stringify(state)); } catch (e) { return ''; } }
+  function readStateHash() {
+    var m = /(?:^|[#&])s=([^&]*)/.exec(window.location.hash || '');
+    if (!m) return false;
+    try { state = P2P.merge(C, P2P.defaults(C), JSON.parse(decodeURIComponent(m[1]))); return true; } catch (e) { return false; }
+  }
+  function writeStateHash() {
+    if (!window.history || !window.history.replaceState) return;
+    var rest = String(window.location.hash || '').replace(/^#/, '').split('&').filter(function (kv) { return kv && kv.indexOf('s=') !== 0; });
+    rest.push(stateHash());
+    try { window.history.replaceState(null, '', '#' + rest.join('&')); } catch (e) { /* file:// or sandbox */ }
+  }
+  function fillPct(c, v) { return (isNum(c.min) && isNum(c.max) && c.max > c.min) ? (100 * (v - c.min) / (c.max - c.min)) + '%' : '50%'; }
+
+  /* "Your path": small milestones that make progress visible (move a control, both explorations, the caveat). */
+  var MILESTONES = ['path-play', 'path-x1', 'path-x2', 'path-caveat'], reached = {};
+  function reach(id) {
+    if (reached[id]) return;
+    reached[id] = 1;
+    var s = $(id); if (s) s.classList.add('done');
+    var n = MILESTONES.filter(function (m) { return reached[m]; }).length, ch = $('p2p-cheer');
+    if (ch) { ch.textContent = n === MILESTONES.length ? 'You have explored the whole mechanism.' : n + ' / ' + MILESTONES.length; ch.classList.add('show'); }
+  }
+  function touched() {
+    reach('path-play');
+    var nd = document.querySelector('.ctrl.nudge'); if (nd) nd.classList.remove('nudge');
+  }
+
+  function getCell(c, i, j) { var v = state[c.id] || []; return c.type === 'matrix' ? (v[i] || [])[j] : v[j]; }
+  function setCell(c, i, j, v) {
+    var a = state[c.id];
+    if (!a) return;
+    if (c.type === 'matrix') { if (a[i]) a[i][j] = v; } else a[j] = v;
+    changed(c);
+  }
+  function buildGrid(c, host) {
+    host = host || $('grid-' + c.id);
+    if (!host) return;
+    var isM = c.type === 'matrix', vals = state[c.id] || [], rows = isM ? vals : [vals];
+    var R = rows.length, K = R ? rows[0].length : 0, i, j, h = '', iid;
+    var cl = (isM ? c.col_labels : c.labels) || [], rl = c.row_labels || [];
+    var lim = (isNum(c.min) ? ' min="' + c.min + '"' : '') + (isNum(c.max) ? ' max="' + c.max + '"' : '') + ' step="' + (isNum(c.step) && c.step > 0 ? c.step : 'any') + '"';
+    h += '<thead><tr>' + (isM ? '<th></th>' : '');
+    for (j = 0; j < K; j++) h += '<th>' + rich(cl[j] !== undefined ? cl[j] : String(j + 1)) + '</th>';
+    h += '</tr></thead><tbody>';
+    for (i = 0; i < R; i++) {
+      h += '<tr>' + (isM ? '<th>' + rich(rl[i] !== undefined ? rl[i] : String(i + 1)) + '</th>' : '');
+      for (j = 0; j < K; j++) {
+        iid = isM ? ('in-' + c.id + '-' + (i + 1) + '-' + (j + 1)) : ('in-' + c.id + '-' + (j + 1));
+        h += '<td><input type="number" id="' + iid + '" data-i="' + i + '" data-j="' + j + '"' + lim + ' value="' + esc(rows[i][j]) +
+          '" aria-label="' + esc(plain(c.label || c.id)) + (isM ? ' row ' + (i + 1) : '') + ' entry ' + (j + 1) + '"></td>';
+      }
+      h += '</tr>';
+    }
+    var t = document.createElement('table');
+    t.className = 'gridin';
+    t.innerHTML = h + '</tbody>';
+    host.innerHTML = '';
+    host.appendChild(t);
+    t.addEventListener('input', function (ev) {
+      var inp = ev.target; if (!inp || inp.tagName !== 'INPUT') return;
+      var v = parseFloat(inp.value); if (!isFinite(v)) return;
+      setCell(c, +inp.getAttribute('data-i'), +inp.getAttribute('data-j'), v);
+    });
+    t.addEventListener('change', function (ev) {
+      var inp = ev.target; if (!inp || inp.tagName !== 'INPUT') return;
+      var i2 = +inp.getAttribute('data-i'), j2 = +inp.getAttribute('data-j'), v = parseFloat(inp.value);
+      if (!isFinite(v)) v = getCell(c, i2, j2);
+      v = clamp(c, v); inp.value = v; setCell(c, i2, j2, v);
+    });
+  }
+  function buildControls() {
+    var host = $('p2p-controls');
+    host.innerHTML = '';
+    C.forEach(function (c) {
+      var box = el('div', { 'class': 'ctrl ctrl-' + c.type, id: 'ctrl-' + c.id, 'data-control': c.id }), head = el('div', { 'class': 'ctrl-head' });
+      box.appendChild(head);
+      if (c.type === 'toggle') {
+        var sw = el('label', { 'class': 'switch' }), cb = el('input', { type: 'checkbox', id: 'in-' + c.id });
+        cb.checked = !!state[c.id];
+        sw.appendChild(cb);
+        sw.appendChild(el('span', { 'class': 'knob', 'aria-hidden': 'true' }));
+        sw.appendChild(el('span', null, rich(c.label || c.id)));
+        head.appendChild(sw);
+        var st = el('span', { 'class': 'state' }, cb.checked ? 'on' : 'off');
+        head.appendChild(st);
+        cb.addEventListener('change', function () { state[c.id] = cb.checked; st.textContent = cb.checked ? 'on' : 'off'; changed(c); });
+      } else {
+        head.appendChild(el('label', (c.type === 'vector' || c.type === 'matrix') ? null : { 'for': 'in-' + c.id }, rich(c.label || c.id)));
+      }
+      if (c.type === 'slider') {
+        var nb = el('input', { type: 'number', 'class': 'num', id: 'num-' + c.id, min: c.min, max: c.max, step: c.step, 'aria-label': plain(c.label || c.id) + ' (exact value)' });
+        nb.value = show(c, state[c.id]);
+        head.appendChild(nb);
+        var rg = el('input', { type: 'range', id: 'in-' + c.id, min: c.min, max: c.max, step: c.step });
+        rg.value = state[c.id];
+        rg.style.setProperty('--fill', fillPct(c, state[c.id]));
+        box.appendChild(rg);
+        box.appendChild(el('div', { 'class': 'ends' }, '<span>' + esc(show(c, c.min)) + '</span><span>' + esc(show(c, c.max)) + '</span>'));
+        rg.addEventListener('input', function () {
+          var v = parseFloat(rg.value); if (!isFinite(v)) return;
+          state[c.id] = v; nb.value = show(c, v); rg.style.setProperty('--fill', fillPct(c, v)); changed(c);
+        });
+        nb.addEventListener('change', function () {
+          var v = parseFloat(nb.value); if (!isFinite(v)) v = state[c.id];
+          v = clamp(c, v); state[c.id] = v; nb.value = show(c, v); rg.value = v; rg.style.setProperty('--fill', fillPct(c, v)); changed(c);
+        });
+      } else if (c.type === 'number') {
+        var ni = el('input', { type: 'number', 'class': 'num wide', id: 'in-' + c.id, min: c.min, max: c.max, step: c.step });
+        ni.value = show(c, state[c.id]);
+        box.appendChild(ni);
+        ni.addEventListener('input', function () { var v = parseFloat(ni.value); if (isFinite(v)) { state[c.id] = v; changed(c); } });
+        ni.addEventListener('change', function () {
+          var v = parseFloat(ni.value); if (!isFinite(v)) v = state[c.id];
+          v = clamp(c, v); state[c.id] = v; ni.value = show(c, v); changed(c);
+        });
+      } else if (c.type === 'select') {
+        var sel = el('select', { id: 'in-' + c.id });
+        (c.options || []).forEach(function (o, i) {
+          var op = el('option', { value: String(i) }, rich(o.label !== undefined ? o.label : o.value));
+          if (String(o.value) === String(state[c.id])) op.selected = true;
+          sel.appendChild(op);
+        });
+        box.appendChild(sel);
+        sel.addEventListener('change', function () { var o = c.options[+sel.value]; if (o) { state[c.id] = o.value; changed(c); } });
+      } else if (c.type === 'vector' || c.type === 'matrix') {
+        var gw = el('div', { 'class': 'gridwrap', id: 'grid-' + c.id });
+        box.appendChild(gw);
+        buildGrid(c, gw);
+      }
+      if (c.help) box.appendChild(el('div', { 'class': 'ctrl-help' }, rich(c.help)));
+      host.appendChild(box);
+    });
+    if (!reached['path-play'] && host.firstChild) host.firstChild.classList.add('nudge');
+  }
+  function changed(c) {
+    touched();
+    if (deps[c.id]) { state = P2P.normalize(C, state); deps[c.id].forEach(function (g) { buildGrid(g); }); }
+    if (!raf) raf = window.requestAnimationFrame(function () { raf = 0; update(); });
+  }
+  function renderReadout(rows) {
+    var host = $('p2p-readout'), scal = [], tabs = [], h = '', next = {};
+    (Array.isArray(rows) ? rows : []).forEach(function (row) { if (row && row.table) tabs.push(row.table); else if (row) scal.push(row); });
+    if (scal.length) {
+      h += '<ol class="chain">' + scal.map(function (s, i) {
+        var txt = fmtVal(s.value), key = plain(s.label) + '#' + i, now = numOf(txt), was = prevVals[key], cls = '', delta = '';
+        next[key] = now;
+        if (isFinite(now) && isFinite(was) && Math.abs(now - was) > 1e-12 * Math.max(1, Math.abs(was))) {
+          cls = ' changed';
+          delta = '<span class="delta ' + (now > was ? 'up' : 'down') + '" aria-label="' + (now > was ? 'increased' : 'decreased') + '">' + (now > was ? '\u25B2' : '\u25BC') + '</span>';
+        }
+        return '<li class="kv-item' + cls + '" id="ro-' + (i + 1) + '"><div class="kv-label"><span class="stepn">' + (i + 1) + '</span>' + rich(s.label) + '</div>' +
+          '<div class="kv-value">' + rich(txt) + delta + '</div>' + (s.formula ? '<div class="kv-formula details">' + rich(s.formula) + '</div>' : '') +
+          (s.note ? '<div class="kv-note details">' + rich(s.note) + '</div>' : '') + '</li>';
+      }).join('') + '</ol>';
+    }
+    tabs.forEach(function (t) {
+      h += '<div class="tblw">' + (t.title ? '<div class="tblt">' + rich(t.title) + '</div>' : '') + '<table class="tbl"><thead><tr>' +
+        (t.headers || []).map(function (x) { return '<th>' + rich(x) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        (t.rows || []).map(function (rw) { return '<tr>' + (Array.isArray(rw) ? rw : [rw]).map(function (x) { return '<td>' + rich(fmtVal(x)) + '</td>'; }).join('') + '</tr>'; }).join('') +
+        '</tbody></table></div>';
+    });
+    prevVals = next;
+    host.innerHTML = h || '<p class="muted">No intermediate values for this state.</p>';
+    // "The equation, with your numbers": the last step that carries a substituted formula, shown under the equation.
+    var live = $('p2p-eqlive'), withF = scal.filter(function (s) { return s && s.formula; });
+    if (live) {
+      var last = withF[withF.length - 1];
+      live.hidden = !last;
+      if (last) live.innerHTML = '<b>With your numbers</b>' + rich(last.formula) + ' = ' + rich(fmtVal(last.value)) + ' <span class="muted">(' + rich(last.label) + ')</span>';
+    }
+  }
+  function renderLive(r) {
+    var host = $('p2p-live-checks'), I = (M && Array.isArray(M.invariants)) ? M.invariants : [], h = '';
+    if (!host) return;
+    if (!I.length || r === null) { host.hidden = true; return; }
+    I.forEach(function (inv, i) {
+      var ok = false, err = '';
+      try { ok = !!inv.check(r, clone(state)); } catch (e) { err = e && e.message ? e.message : String(e); }
+      h += '<span class="chip ' + (ok ? 'ok' : 'bad') + '" id="live-check-' + (i + 1) + '"' + (err ? ' title="' + esc(err) + '"' : '') + '>' +
+        (ok ? '\u2713 ' : '\u2717 ') + rich((inv && inv.name) || ('Check ' + (i + 1))) + '</span>';
+    });
+    host.innerHTML = '<span class="live-label">Live checks for the current input:</span> ' + h;
+    host.hidden = false;
+  }
+  function update() {
+    state = P2P.normalize(C, state);
+    if (!READY) { showError('The interactive part of this page failed to load (generated code error). The explanation text remains valid.'); return; }
+    var r, ib = $('p2p-insight'), s;
+    try { r = M.compute(clone(state)); } catch (e) { renderLive(null); showError('compute() failed for this input: ' + (e && e.message)); return; }
+    try {
+      var vis = $('p2p-visual'), oldSvg = vis.querySelector('svg');
+      vis.innerHTML = String(M.view(clone(state), r));
+      try { tidySvg(vis); } catch (ey) { /* cosmetic */ }
+      try { tweenSvg(oldSvg, vis); } catch (et) { /* animation is cosmetic */ }
+    } catch (e2) { showError('Drawing failed: ' + (e2 && e2.message)); return; }
+    try { renderReadout(M.readout ? M.readout(clone(state), r) : []); } catch (e3) { $('p2p-readout').innerHTML = '<p class="muted">readout() failed: ' + esc(e3 && e3.message) + '</p>'; }
+    try { s = M.insight ? M.insight(clone(state), r) : ''; ib.innerHTML = s ? rich(s) : ''; ib.hidden = !s; } catch (e4) { ib.hidden = true; }
+    renderLive(r);
+    hideError();
+    writeStateHash();
+  }
+  function applyPreset(i) {
+    var e = (SPEC.explorations || [])[i];
+    if (!e) return;
+    state = P2P.merge(C, P2P.defaults(C), e.preset || {});
+    buildControls();
+    update();
+    reach('path-x' + (i + 1));
+    touched();
+    Array.prototype.forEach.call(document.querySelectorAll('.explore'), function (x, k) {
+      x.classList.toggle('active', k === i);
+      if (k === i) x.classList.add('done');
+    });
+    setStatus('Exploration ' + (i + 1) + ' loaded: ' + plain(e.title) + '. Now do its step: change one thing and watch the picture.');
+    var pg = $('playground');
+    pg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    pg.classList.remove('flash'); void pg.offsetWidth; pg.classList.add('flash');
+  }
+  function runChecks() {
+    var host = $('p2p-tests'), sum = $('p2p-tests-summary');
+    if (!READY) { sum.textContent = 'Checks could not run because the interactive code failed to load.'; sum.className = 'tests-summary bad'; return; }
+    var T = Array.isArray(M.tests) ? M.tests : [], base = P2P.defaults(C), pass = 0, h = '';
+    T.forEach(function (t, i) {
+      var ok = false, err = '', params = '';
+      try { var p = P2P.merge(C, base, (t && t.params) || {}, true); ok = !!t.check(M.compute(clone(p)), p); } catch (e) { err = e && e.message ? e.message : String(e); }
+      if (ok) pass++;
+      if (t && t.params && Object.keys(t.params).length) { params = JSON.stringify(t.params); if (params.length > 90) params = params.slice(0, 87) + '...'; }
+      h += '<li class="' + (ok ? 'pass' : 'fail') + '" id="test-' + (i + 1) + '"><span class="badge">' + (ok ? 'PASS' : 'FAIL') + '</span><span>' + rich((t && t.name) || ('Check ' + (i + 1))) + '</span>' +
+        (params ? '<code>' + esc(params) + '</code>' : '') + (err ? '<span class="terr">' + esc(err) + '</span>' : '') + '</li>';
+    });
+    host.innerHTML = h || '<li class="muted">No checks were defined.</li>';
+    sum.innerHTML = T.length ? '<b>' + pass + ' / ' + T.length + '</b> checks pass, recomputed now in your browser from the same code that drives the playground.' : '';
+    sum.className = 'tests-summary ' + (pass === T.length ? 'ok' : 'bad');
+  }
+  function readHash() {
+    var map = { theme: 'set-theme', palette: 'set-palette', size: 'set-size', details: 'set-details', predict: 'set-predict' };
+    String(window.location.hash || '').replace(/^#/, '').split('&').forEach(function (kv) {
+      var parts = kv.split('='), e = map[parts[0]] ? $(map[parts[0]]) : null, v;
+      if (!e || parts.length < 2) return;
+      v = decodeURIComponent(parts[1]);
+      if (e.type === 'checkbox') e.checked = (v === '1' || v === 'true');
+      else if (Array.prototype.some.call(e.options, function (o) { return o.value === v; })) e.value = v;
+    });
+  }
+  function applySettings(rerender) {
+    var b = document.body;
+    b.classList.toggle('dark', val('set-theme', 'light') === 'dark');
+    if (V.setPalette) V.setPalette(val('set-palette', 'standard'));
+    b.style.zoom = String(val('set-size', '1'));
+    b.classList.toggle('hide-details', !val('set-details', true));
+    b.classList.toggle('predict', !!val('set-predict', false));
+    if (rerender) update();
+  }
+  function init() {
+    // Every step is guarded: a failure in one optional feature must never leave the page unusable.
+    try { readHash(); applySettings(false); } catch (e) { /* settings are optional */ }
+    try { if (readStateHash()) setStatus('Loaded the playground state from the link.'); } catch (e) { state = P2P.defaults(C); }
+    try { buildControls(); } catch (e) { showError('Could not build the controls: ' + (e && e.message)); }
+    var sh = $('p2p-share');
+    if (sh) sh.addEventListener('click', function () {
+      writeStateHash();
+      var url = window.location.href, done = function () { setStatus('Link to this exact state copied. Anyone opening it sees what you see now.'); };
+      try { navigator.clipboard.writeText(url).then(done, function () { window.prompt('Copy this link:', url); }); } catch (e) { window.prompt('Copy this link:', url); }
+    });
+    ['set-theme', 'set-palette', 'set-size', 'set-details', 'set-predict'].forEach(function (id) {
+      var e = $(id); if (e) e.addEventListener('change', function () { applySettings(true); });
+    });
+    $('p2p-reset').addEventListener('click', function () { state = P2P.defaults(C); buildControls(); update(); setStatus('Reset to the default values.'); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-explore]'), function (b) {
+      b.addEventListener('click', function () { applyPreset(+b.getAttribute('data-explore')); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-reveal]'), function (b) {
+      b.addEventListener('click', function () { var a = $('answer-' + b.getAttribute('data-reveal')); if (a) a.classList.add('shown'); b.disabled = true; b.textContent = 'Revealed'; });
+    });
+    try { update(); } catch (e) { showError('The playground could not start: ' + (e && e.message) + '. The explanation remains valid.'); }
+    try { runChecks(); } catch (e) { var ts = $('p2p-tests-summary'); if (ts) ts.textContent = 'Checks could not run: ' + (e && e.message); }
+    try { initScroll(); } catch (e) { Array.prototype.forEach.call(document.querySelectorAll('.reveal'), function (x) { x.classList.add('in'); }); }
+  }
+  /* Scroll progress bar, current-section highlight in the top bar, gentle reveal of sections, caveat milestone. */
+  function initScroll() {
+    var bar = $('p2p-progress'), links = document.querySelectorAll('.toc a'), secs = [], i;
+    for (i = 0; i < links.length; i++) { var s = document.querySelector(links[i].getAttribute('href')); if (s) secs.push([s, links[i]]); }
+    function onScroll() {
+      var h = document.documentElement, max = h.scrollHeight - h.clientHeight, y = h.scrollTop || document.body.scrollTop, cur = null, j;
+      if (bar) bar.style.width = (max > 0 ? 100 * y / max : 0) + '%';
+      for (j = 0; j < secs.length; j++) if (secs[j][0].getBoundingClientRect().top < 140) cur = secs[j][1];
+      for (j = 0; j < secs.length; j++) secs[j][1].classList.toggle('on', secs[j][1] === cur);
+      var cv = $('caveat');
+      if (cv && cv.getBoundingClientRect().top < h.clientHeight * 0.7) reach('path-caveat');
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    var rv = document.querySelectorAll('.reveal');
+    if (!('IntersectionObserver' in window) || REDUCED) { Array.prototype.forEach.call(rv, function (x) { x.classList.add('in'); }); return; }
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, { rootMargin: '0px 0px -8% 0px' });
+    Array.prototype.forEach.call(rv, function (x) { io.observe(x); });
+    // never leave content hidden (e.g. headless capture or print): reveal everything after a short delay
+    window.setTimeout(function () { Array.prototype.forEach.call(rv, function (x) { x.classList.add('in'); }); }, 1200);
+  }
+  window.p2p = {
+    controls: C.map(function (c) { return c.id; }),
+    get: function () { return clone(state); },
+    set: function (id, v) { var o = {}; o[id] = v; state = P2P.merge(C, state, o); buildControls(); update(); return clone(state); },
+    load: function (i) { applyPreset(i); }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+</body>
+</html>

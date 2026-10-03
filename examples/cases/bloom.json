@@ -1,0 +1,7 @@
+{
+  "id": "adam-bias-correction",
+  "source_url": "https://arxiv.org/abs/1412.6980",
+  "excerpt": "Algorithm 1 and Section 3 of Adam (paraphrased for practice). Adam keeps exponential moving averages of the gradient g_t and of the squared gradient: m_t = β1·m_{t−1} + (1 − β1)·g_t and v_t = β2·v_{t−1} + (1 − β2)·g_t², starting from m_0 = v_0 = 0. Because they start at zero, these averages are biased towards zero, especially during the first steps and when β1 and β2 are close to 1. Adam corrects this: m̂_t = m_t / (1 − β1^t) and v̂_t = v_t / (1 − β2^t). The update is θ_t = θ_{t−1} − α·m̂_t / (√v̂_t + ε), with suggested defaults α = 0.001, β1 = 0.9, β2 = 0.999, ε = 10⁻⁸. Section 3 notes that the effective step α·m̂_t/√v̂_t is approximately bounded in magnitude by α in common cases.",
+  "focus": "Explain Adam's bias correction (Algorithm 1, Section 3) on a short sequence of scalar gradients. Show m_t, v_t, the corrected m̂_t and v̂_t and the resulting step for the first steps. Let the learner change β1, β2, the gradient pattern (constant or alternating sign) and switch bias correction on or off. Guide them through (a) a constant gradient, where m̂_t equals the gradient at every step while m_t starts far too small, and (b) β2 close to 1 with correction switched off. Check that with constant gradient g, m̂_t = g and v̂_t = g² for every t, and that m_1 = (1 − β1)·g. Do not train a network.",
+  "audience": "Third-year engineering undergraduates who know derivatives and gradient descent."
+}

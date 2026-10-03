@@ -1,0 +1,7 @@
+{
+  "id": "batch-normalization",
+  "source_url": "https://arxiv.org/abs/1502.03167",
+  "excerpt": "Section 3, Algorithm 1, Batch Normalizing Transform (paraphrased for practice). For the values x_1..x_m of one activation over a mini-batch B: mini-batch mean μ_B = (1/m) Σ x_i; mini-batch variance σ_B² = (1/m) Σ (x_i − μ_B)²; normalize x̂_i = (x_i − μ_B) / √(σ_B² + ε); scale and shift y_i = γ·x̂_i + β, where γ and β are learned and ε is a small constant for numerical stability. The normalized values have zero mean and unit variance (ignoring ε). Setting γ = √(σ_B² + ε) and β = μ_B recovers the original activations, so the transform can represent the identity.",
+  "focus": "Explain the batch-normalizing transform of Algorithm 1 for one activation over a mini-batch of 3 to 8 values. Let the learner edit the batch values, ε, γ and β, and show μ_B, σ_B², every x̂_i and y_i. Guide them through (a) adding the same constant to every input, which leaves x̂ unchanged, and (b) a batch whose values are all equal, where ε prevents division by zero. Check that x̂ has mean 0 and, for ε = 0 and non-constant inputs, variance 1 using the 1/m variance, and that γ = √(σ_B² + ε), β = μ_B gives y = x.",
+  "audience": "Third-year engineering undergraduates comfortable with mean and variance."
+}

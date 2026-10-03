@@ -77,6 +77,70 @@
     }
     window.requestAnimationFrame(frame);
   }
+  /* Generated drawings sometimes place a label outside the canvas or on top of another label. After every draw:
+     (1) grow the viewBox to include everything drawn, so nothing is cut off; (2) push colliding labels apart;
+     (3) give dark labels a paper-coloured halo so they stay legible over lines and cells. Zero tokens. */
+  function tidySvg(host) {
+    var svg = host.querySelector('svg');
+    if (!svg || !svg.getBBox) return;
+    var vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number), texts, boxes = [], i, j, pass, moved;
+    texts = svg.querySelectorAll('text');
+    for (i = 0; i < texts.length; i++) {
+      var f = texts[i].getAttribute('fill') || getComputedStyle(texts[i]).fill || '';
+      var rgb = (String(f).match(/\d+/g) || []).map(Number), dark = true;
+      if (/^#/.test(f)) { var hx = f.replace('#', ''); if (hx.length === 3) hx = hx.replace(/(.)/g, '$1$1'); rgb = [0, 2, 4].map(function (k) { return parseInt(hx.substr(k, 2), 16); }); }
+      if (rgb.length >= 3) dark = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) < 140;
+      if (/^(white|#fff|#ffffff)$/i.test(f)) dark = false;
+      if (dark) texts[i].classList.add('halo');
+    }
+    try {
+      for (i = 0; i < texts.length; i++) {
+        if (texts[i].getAttribute('transform') || (texts[i].parentNode && texts[i].parentNode.getAttribute && /rotate/.test(texts[i].parentNode.getAttribute('transform') || ''))) continue;
+        var b = texts[i].getBBox();
+        if (b.width > 0) boxes.push({ e: texts[i], x: b.x, y: b.y, w: b.width, h: b.height, dy: 0 });
+      }
+      // Move the wider label of a colliding pair (annotations, not short tick numbers), away from the other one.
+      for (pass = 0; pass < 10; pass++) {
+        moved = false;
+        for (i = 0; i < boxes.length; i++) for (j = i + 1; j < boxes.length; j++) {
+          var A = boxes[i], B = boxes[j];
+          var ox = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x), oy = Math.min(A.y + A.dy + A.h, B.y + B.dy + B.h) - Math.max(A.y + A.dy, B.y + B.dy);
+          if (ox > 1.5 && oy > 1.5) {
+            var mv = A.w > B.w ? A : B, st = mv === A ? B : A;
+            if (Math.abs(mv.dy) >= 34) { mv = st; st = mv === A ? B : A; }
+            if (Math.abs(mv.dy) >= 34) continue;
+            mv.dy += (mv.y + mv.dy + mv.h / 2 >= st.y + st.dy + st.h / 2) ? oy + 1 : -(oy + 1);
+            moved = true;
+          }
+        }
+        if (!moved) break;
+      }
+      boxes.forEach(function (bx) { if (bx.dy) bx.e.setAttribute('transform', 'translate(0 ' + Math.round(bx.dy * 10) / 10 + ')'); });
+      if (vb.length === 4 && vb.every(isFinite)) {
+        var bb = svg.getBBox(), pad = 6, x0 = Math.min(vb[0], bb.x - pad), y0 = Math.min(vb[1], bb.y - pad);
+        var x1 = Math.max(vb[0] + vb[2], bb.x + bb.width + pad), y1 = Math.max(vb[1] + vb[3], bb.y + bb.height + pad);
+        if (x0 < vb[0] || y0 < vb[1] || x1 > vb[0] + vb[2] || y1 > vb[1] + vb[3]) svg.setAttribute('viewBox', [x0, y0, x1 - x0, y1 - y0].map(function (v) { return Math.round(v); }).join(' '));
+      }
+    } catch (e) { /* getBBox can fail on hidden SVGs: tidying is cosmetic */ }
+  }
+  /* Shareable state: the playground state lives in the URL hash (#s=...), so a link reproduces exactly what you see. */
+  function stateHash() { try { return 's=' + encodeURIComponent(JSON.stringify(state)); } catch (e) { return ''; } }
+  function readStateHash() {
+    var m = /(?:^|[#&])s=([^&]*)/.exec(window.location.hash || '');
+    if (!m) return false;
+    try { state = P2P.merge(C, P2P.defaults(C), JSON.parse(decodeURIComponent(m[1]))); return true; } catch (e) { return false; }
+  }
+  function writeStateHash() {
+    if (!window.history || !window.history.replaceState) return;
+    var rest = String(window.location.hash || '').replace(/^#/, '').split('&').filter(function (kv) { return kv && kv.indexOf('s=') !== 0; });
+    rest.push(stateHash());
+    try { window.history.replaceState(null, '', '#' + rest.join('&')); } catch (e) { /* file:// or sandbox */ }
+  }
+  // A setting that visibly does nothing looks broken: hide it when the page has nothing for it to toggle.
+  function syncDetailsLabel() {
+    var lbl = $('lbl-details');
+    if (lbl) lbl.hidden = !document.querySelector('.details, .ctrl-help, .eq-live:not([hidden]), blockquote.q, .eq-src, .ends');
+  }
   function fillPct(c, v) { return (isNum(c.min) && isNum(c.max) && c.max > c.min) ? (100 * (v - c.min) / (c.max - c.min)) + '%' : '50%'; }
 
   /* "Your path": small milestones that make progress visible (move a control, both explorations, the caveat). */
@@ -229,6 +293,13 @@
     });
     prevVals = next;
     host.innerHTML = h || '<p class="muted">No intermediate values for this state.</p>';
+    // "The equation, with your numbers": the last step that carries a substituted formula, shown under the equation.
+    var live = $('p2p-eqlive'), withF = scal.filter(function (s) { return s && s.formula; });
+    if (live) {
+      var last = withF[withF.length - 1];
+      live.hidden = !last;
+      if (last) live.innerHTML = '<b>With your numbers</b>' + rich(last.formula) + ' = ' + rich(fmtVal(last.value)) + ' <span class="muted">(' + rich(last.label) + ')</span>';
+    }
   }
   function renderLive(r) {
     var host = $('p2p-live-checks'), I = (M && Array.isArray(M.invariants)) ? M.invariants : [], h = '';
@@ -251,12 +322,14 @@
     try {
       var vis = $('p2p-visual'), oldSvg = vis.querySelector('svg');
       vis.innerHTML = String(M.view(clone(state), r));
+      try { tidySvg(vis); } catch (ey) { /* cosmetic */ }
       try { tweenSvg(oldSvg, vis); } catch (et) { /* animation is cosmetic */ }
     } catch (e2) { showError('Drawing failed: ' + (e2 && e2.message)); return; }
     try { renderReadout(M.readout ? M.readout(clone(state), r) : []); } catch (e3) { $('p2p-readout').innerHTML = '<p class="muted">readout() failed: ' + esc(e3 && e3.message) + '</p>'; }
     try { s = M.insight ? M.insight(clone(state), r) : ''; ib.innerHTML = s ? rich(s) : ''; ib.hidden = !s; } catch (e4) { ib.hidden = true; }
     renderLive(r);
     hideError();
+    writeStateHash();
   }
   function applyPreset(i) {
     var e = (SPEC.explorations || [])[i];
@@ -265,6 +338,7 @@
     buildControls();
     update();
     reach('path-x' + (i + 1));
+    touched();
     Array.prototype.forEach.call(document.querySelectorAll('.explore'), function (x, k) {
       x.classList.toggle('active', k === i);
       if (k === i) x.classList.add('done');
@@ -306,13 +380,21 @@
     if (V.setPalette) V.setPalette(val('set-palette', 'standard'));
     b.style.zoom = String(val('set-size', '1'));
     b.classList.toggle('hide-details', !val('set-details', true));
+    syncDetailsLabel();
     b.classList.toggle('predict', !!val('set-predict', false));
     if (rerender) update();
   }
   function init() {
-    readHash();
-    applySettings(false);
-    buildControls();
+    // Every step is guarded: a failure in one optional feature must never leave the page unusable.
+    try { readHash(); applySettings(false); } catch (e) { /* settings are optional */ }
+    try { if (readStateHash()) setStatus('Loaded the playground state from the link.'); } catch (e) { state = P2P.defaults(C); }
+    try { buildControls(); } catch (e) { showError('Could not build the controls: ' + (e && e.message)); }
+    var sh = $('p2p-share');
+    if (sh) sh.addEventListener('click', function () {
+      writeStateHash();
+      var url = window.location.href, done = function () { setStatus('Link to this exact state copied. Anyone opening it sees what you see now.'); };
+      try { navigator.clipboard.writeText(url).then(done, function () { window.prompt('Copy this link:', url); }); } catch (e) { window.prompt('Copy this link:', url); }
+    });
     ['set-theme', 'set-palette', 'set-size', 'set-details', 'set-predict'].forEach(function (id) {
       var e = $(id); if (e) e.addEventListener('change', function () { applySettings(true); });
     });
@@ -323,9 +405,10 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-reveal]'), function (b) {
       b.addEventListener('click', function () { var a = $('answer-' + b.getAttribute('data-reveal')); if (a) a.classList.add('shown'); b.disabled = true; b.textContent = 'Revealed'; });
     });
-    update();
-    runChecks();
-    initScroll();
+    try { update(); } catch (e) { showError('The playground could not start: ' + (e && e.message) + '. The explanation remains valid.'); }
+    try { syncDetailsLabel(); } catch (e) { /* optional */ }
+    try { runChecks(); } catch (e) { var ts = $('p2p-tests-summary'); if (ts) ts.textContent = 'Checks could not run: ' + (e && e.message); }
+    try { initScroll(); } catch (e) { Array.prototype.forEach.call(document.querySelectorAll('.reveal'), function (x) { x.classList.add('in'); }); }
   }
   /* Scroll progress bar, current-section highlight in the top bar, gentle reveal of sections, caveat milestone. */
   function initScroll() {

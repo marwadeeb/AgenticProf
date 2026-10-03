@@ -1,6 +1,6 @@
 # Paper to Playground
 
-EECE798S Agentic Systems hackathon. `agent.py` turns a research-paper excerpt and a learning brief into a single, offline, interactive HTML explainer (`out/index.html`) plus an execution trace (`out/trace.jsonl`). The repository is the reusable generator; the pages are its results.
+EECE503P / EECE798S Agentic Systems hackathon. `agent.py` turns a research-paper excerpt and a learning brief into a single, offline, interactive HTML explainer (`out/index.html`) plus an execution trace (`out/trace.jsonl`). The repository is the reusable generator; the pages are its results.
 
 **Team:** Laure Mohsen, Marwa Deeb
 

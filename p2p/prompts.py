@@ -35,14 +35,14 @@ SPEC fields (all required):
  "paper": {"title": "", "authors": "", "year": "", "section": "section and equation numbers explained"},
  "idea": "2-4 sentences: the core idea in plain words",
  "why": "1-2 sentences: why it matters",
- "equation": "the key equation(s), faithful to the source",
- "symbols": [{"sym": "", "meaning": ""}],
+ "equation": "LaTeX of the key equation(s), faithful to the source, one per line, e.g. \\mathrm{softmax}\\left(\\frac{QK^{\\top}}{\\sqrt{d_k}}\\right)",
+ "symbols": [{"sym": "LaTeX, e.g. d_k", "meaning": ""}],
  "controls": [2-6 controls, see below],
  "visual_caption": "how to read the visual: what each panel, axis, colour and mark means",
  "explorations": [exactly 2: {"title": "", "preset": {"<control id>": value}, "change": "what to change", "observe": "what to watch (name the panel or readout)", "why": "the mechanism-level reason"}],
  "misconception": {"kind": "Limitation" | "Assumption" | "Common misunderstanding", "text": ""},
  "grounding": {"from_source": ["claims the excerpt supports, each tagged with its section/equation"], "ours": ["our toy numbers, simplifications, visual choices and any background not in the excerpt"]}}
-JSON rules: double quotes, no comments, no trailing commas, no backslashes, no LaTeX. Write maths with Unicode (√ Σ · × ≤ ≈ ∞ α β θ ε ᵀ) and the tags <sub> <sup> <i> <b> <br>, allowed in any text field.
+JSON rules: double quotes, no comments, no trailing commas. Maths is rendered in textbook form from LaTeX: "equation" and symbols[].sym are LaTeX without $; in every other SPEC text field (idea, why, explorations, misconception, grounding, captions) write EVERY formula, symbol and expression inline as $...$ LaTeX (e.g. "scale by $1/\\sqrt{d_k}$", "$PE_{(pos,2i)} = \\sin(pos/10000^{2i/d_{model}})$"); never plain-text maths such as 10000^(2i/d_model) or sqrt(d_k). Inside JSON every LaTeX backslash is doubled (\\frac, \\sqrt). Tags <b> <i> <br> are allowed in text. In CODE strings (labels, readout, insight, SVG text) use Unicode maths instead (√ Σ · × ≤ ≈ α β θ, d_k as dₖ), never LaTeX.
 
 Controls (id: short JavaScript identifier; its value reaches CODE as p.<id>; optional "help": one short sentence):
  {"type":"slider","id":"t","label":"Temperature T","min":0.1,"max":5,"step":0.1,"value":1}   ("number" takes the same fields)
@@ -88,8 +88,9 @@ ONLY the top-level declarations you change, each complete (function name(...) {.
 ===END===
 
 CODE rules: ES2020, pure and deterministic (no DOM, fetch, import, Math.random); every displayed value finite for every valid input.
-
-""" + V_REFERENCE
+"""
+# The V helper reference (~700 tokens) is only needed when the drawing code is involved.
+_VIEW_PROBLEM = re.compile(r"view|SVG|visual|Displayed output|\bV\.", re.I)
 
 SPEC_FIX_SYSTEM = ("You repair malformed JSON. Reply with ===SPEC=== on its own line, then the corrected JSON object, then "
                    "===END===. Keep all content; fix only syntax (double quotes, escaped inner quotes, no trailing commas, "
@@ -139,10 +140,15 @@ RETRY_REPAIR_NOTE = ("A previous repair did not fix the problems below, so the e
                      "that expects an exact value a formula only approaches (e.g. softmax weight exactly 1) is wrong.")
 
 
-def repair_messages(case, spec, code, failures, warnings, include_excerpt, retry=False) -> list:
+DERIVE_NOTE = ("Before the patch, write ===DERIVATION=== and then at most 120 words: recompute the first failing case by hand "
+               "from the source equation, using the inputs shown, and state which value is wrong and whether compute or the "
+               "check must change. Then continue with ===SPEC_PATCH=== and ===CODE=== as usual.")
+
+
+def repair_messages(case, spec, code, failures, warnings, include_excerpt, retry=False, derive=False) -> list:
     parts = []
     if retry:
-        parts.append("<note>\n" + RETRY_REPAIR_NOTE + "\n</note>")
+        parts.append("<note>\n" + RETRY_REPAIR_NOTE + (" " + DERIVE_NOTE if derive else "") + "\n</note>")
     for k in ("focus", "audience"):
         v = str(case.get(k) or "").strip()
         if v:
@@ -163,7 +169,8 @@ def repair_messages(case, spec, code, failures, warnings, include_excerpt, retry
         probs += "\nAlso fix if quick:\n" + "\n".join("- " + w for w in warnings[:6])
     parts.append("<problems>\n" + probs + "\n</problems>")
     parts.append("Return SPEC_PATCH and CODE in the exact format.")
-    return [{"role": "system", "content": REPAIR_SYSTEM}, {"role": "user", "content": "\n\n".join(parts)}]
+    system = REPAIR_SYSTEM + ("\n" + V_REFERENCE if _VIEW_PROBLEM.search(" ".join(failures + list(warnings or []))) else "")
+    return [{"role": "system", "content": system}, {"role": "user", "content": "\n\n".join(parts)}]
 
 
 def spec_fix_messages(raw: str, error: str) -> list:

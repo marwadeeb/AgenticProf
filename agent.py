@@ -38,6 +38,9 @@ MAX_REQUESTS = 10
 # a reasoning token cap (soft: ~2-3k used) leaves room for the answer inside THINK_MAX_TOKENS.
 THINK_REASONING = {"max_tokens": int(os.getenv("P2P_THINK_TOKENS", "1500")), "exclude": True}
 THINK_MAX_TOKENS = 6000
+# "derive": the escalated repair writes a short visible derivation before its patch (bounded, ~300 tokens).
+# "reasoning": hidden reasoning instead (fixed more, but its cap is soft and it sometimes never answers).
+THINK_MODE = os.getenv("P2P_THINK_MODE", "derive")
 MAX_COMPLETION_TOKENS = 30000
 
 
@@ -173,14 +176,16 @@ class Pipeline:
                              completion_tokens_used=self.llm.completion_tokens, seconds_left=round(self.time_left(), 1))
             return None
         include_excerpt = any(f.startswith("TEST") or "INVARIANT" in f for f in best.failures)
-        msgs = prompts.repair_messages(self.case, best.spec, best.code, best.failures, best.warnings, include_excerpt, retry)
+        msgs = prompts.repair_messages(self.case, best.spec, best.code, best.failures, best.warnings, include_excerpt, retry,
+                                       derive=retry and THINK_MODE == "derive")
         self.trace.event("revise", "build_repair_prompt", "ok", round=rnd, problems=len(best.failures),
                          include_excerpt=include_excerpt, retry_after_failed_fix=retry)
         # A maths error that survived a plain repair gets one repair with the model's reasoning on: it costs
         # reasoning tokens only in this rare case, while a wrong formula costs accuracy on every view of the page.
-        think = THINK_REASONING if retry else None
+        think = THINK_REASONING if (retry and THINK_MODE == "reasoning") else None
+        label = "_reasoning" if think else ("_derive" if retry else "")
         try:
-            res = self.llm.chat(msgs, stage="revise", purpose="repair_" + str(rnd) + ("_reasoning" if think else ""),
+            res = self.llm.chat(msgs, stage="revise", purpose="repair_" + str(rnd) + label,
                                 max_tokens=THINK_MAX_TOKENS if think else REPAIR_MAX_TOKENS, reasoning=think)
         except LLMUnavailable as exc:
             self.trace.event("revise", "llm_call", "unavailable", round=rnd, error=str(exc))
@@ -202,7 +207,7 @@ class Pipeline:
             code, names, mode = jspatch.apply_patch(best.code, rp.code)
             if mode == "unparseable":  # loose statements we cannot splice safely: keep the previous code
                 code = best.code
-            elif mode in ("patch", "full"):
+            elif mode in ("patch", "patch-lines", "full"):
                 changed.append("CODE")
         self.trace.event("revise", "apply_repair", "ok" if changed else "no_change", round=rnd, changed=changed,
                          code_mode=mode, code_declarations=names, code_complete=rp.complete)

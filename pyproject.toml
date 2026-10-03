@@ -1,0 +1,38 @@
+[project]
+name = "hacakthon"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "marwadeeb", email = "marwadeeb.md4@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=1.11.0",
+    "beautifulsoup4>=4.15.0",
+    "chromadb>=1.5.9",
+    "claude-agent-sdk>=0.2.163",
+    "fastapi>=0.142.2",
+    "httpx>=0.28.1",
+    "langchain>=1.4.3",
+    "langchain-anthropic>=1.7.5",
+    "langchain-openai>=1.6.7",
+    "langgraph>=1.2.12",
+    "mcp>=2.3.0",
+    "openai>=3.24.0",
+    "pandas>=3.0.6",
+    "pydantic>=2.13.5",
+    "pypdf>=6.19.0",
+    "python-dotenv>=1.2.4",
+    "requests>=2.34.2",
+    "rich>=15.0.0",
+    "streamlit>=1.65.0",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+hacakthon = "hacakthon:main"
+
+[build-system]
+requires = ["uv_build>=0.12.22,<0.13.0"]
+build-backend = "uv_build"

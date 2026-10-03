@@ -132,8 +132,15 @@ def generation_messages(case: dict) -> list:
             {"role": "user", "content": case_block(case) + "\n\n" + GEN_INSTRUCTION}]
 
 
-def repair_messages(case, spec, code, failures, warnings, include_excerpt) -> list:
+RETRY_REPAIR_NOTE = ("A previous repair attempt returned code that still fails exactly as below, so the bug is not where it "
+                     "was assumed. Recompute one failing case by hand from the source equation, compare it step by step "
+                     "with the computed values shown, and check every helper's array shapes, indices and loop bounds.")
+
+
+def repair_messages(case, spec, code, failures, warnings, include_excerpt, retry=False) -> list:
     parts = []
+    if retry:
+        parts.append("<note>\n" + RETRY_REPAIR_NOTE + "\n</note>")
     for k in ("focus", "audience"):
         v = str(case.get(k) or "").strip()
         if v:
